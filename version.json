@@ -1,6 +1,7 @@
 {
-  "latestBuild": 225,
-  "minimumBuild": 225,
-  "message": "SurveyHub is up to date. Future releases will appear here automatically.",
-  "released": "2026-09-11"
+  "build": 226,
+  "version": "226",
+  "label": "Build 226 — Online Sync",
+  "message": "Improved worker dashboard connection reliability and online sync.",
+  "url": "./"
 }

@@ -15885,3 +15885,60 @@ document.addEventListener('DOMContentLoaded',function(){
   window.sh225SaveDraft=captureDraft;
 })();
 </script>
+
+
+<script id="sh226-online-network-resilience">
+/* ===== Build 226: Online Worker Sync Resilience ===== */
+(function(){
+  const nativeFetch=window.fetch.bind(window);
+  function isSupabaseGet(input,init){
+    try{
+      const url=typeof input==='string'?input:(input&&input.url)||'';
+      const method=String((init&&init.method)||(input&&input.method)||'GET').toUpperCase();
+      return method==='GET' && url.indexOf('https://tbyygxvhamkorxfqfxat.supabase.co/rest/v1/')===0;
+    }catch(e){return false;}
+  }
+  function transient(e){
+    const s=String((e&&e.message)||e||'').toLowerCase();
+    return (e&&e.name==='AbortError') || s.includes('failed to fetch') || s.includes('network') || s.includes('aborted');
+  }
+  window.fetch=async function(input,init){
+    if(!isSupabaseGet(input,init)) return nativeFetch(input,init);
+    let last;
+    for(let attempt=1;attempt<=3;attempt++){
+      try{return await nativeFetch(input,init);}
+      catch(e){
+        last=e;
+        if(!transient(e)||attempt===3)throw e;
+        await new Promise(r=>setTimeout(r,attempt*850));
+      }
+    }
+    throw last;
+  };
+  function label(){
+    const candidates=[...document.querySelectorAll('header, .topbar, .header, h1')];
+    for(const el of candidates){
+      if((el.textContent||'').includes('SurveyHub — Build 219')){
+        const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
+        let n; while((n=walker.nextNode())){
+          if((n.nodeValue||'').includes('SurveyHub — Build 219')){
+            n.nodeValue=(n.nodeValue||'').replace('SurveyHub — Build 219 • Reviewed Reject Fix','SurveyHub — Build 226 • Online Sync');
+          }
+        }
+      }
+    }
+  }
+  document.addEventListener('DOMContentLoaded',label);
+  setTimeout(label,200); setTimeout(label,900);
+})();
+</script>
+<script id="sh226-build-label">
+(function(){
+  document.title='SurveyHub Build 226 — Online Sync';
+  function badge(){
+    const b=document.getElementById('sh225OnlineBadge');
+    if(b)b.textContent='SurveyHub Online • Build 226';
+  }
+  document.addEventListener('DOMContentLoaded',badge); setTimeout(badge,250); setTimeout(badge,1000);
+})();
+</script>
