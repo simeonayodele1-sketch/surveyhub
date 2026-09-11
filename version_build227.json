@@ -1,0 +1,7 @@
+{
+  "build": 227,
+  "version": "227",
+  "label": "Build 227 — Updater Fix",
+  "message": "Fixed the online update loop and build detection.",
+  "url": "./index.html"
+}
