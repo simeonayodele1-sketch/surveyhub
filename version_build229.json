@@ -1,0 +1,7 @@
+{
+  "build": 229,
+  "version": "229",
+  "label": "Build 229 — Freeze Fix",
+  "message": "Fixed the Build 228 page unresponsive loop on Admin and Worker Portal.",
+  "url": "./index.html"
+}
