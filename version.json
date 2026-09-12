@@ -1,7 +1,0 @@
-{
-  "build": 228,
-  "version": "228",
-  "label": "Build 228 — Worker Online Badge",
-  "message": "Worker Portal now shows the current online build, with stable hosted build detection.",
-  "url": "./index.html"
-}
