@@ -1,0 +1,7 @@
+{
+  "build": 232,
+  "version": "232",
+  "label": "Build 232 — Stable Online Worker Directory",
+  "message": "Fixed the false same-build update prompt and legacy Build 230 badge conflict while keeping online worker sync.",
+  "url": "./index.html"
+}
