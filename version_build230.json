@@ -1,0 +1,7 @@
+{
+  "build": 230,
+  "version": "230",
+  "label": "Build 230 — Sync & Update Fix",
+  "message": "Fixed the same-build update prompt and improved worker online refresh reliability.",
+  "url": "./index.html"
+}
