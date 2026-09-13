@@ -1,7 +1,0 @@
-{
-  "build": 231,
-  "version": "231",
-  "label": "Build 231 — Shared Worker Directory",
-  "message": "Workers now sync online. Add, edit or remove workers without replacing the GitHub build.",
-  "url": "./index.html"
-}
