@@ -16487,3 +16487,97 @@ document.addEventListener('DOMContentLoaded',function(){
   document.addEventListener('DOMContentLoaded',init); if(document.readyState!=='loading')init();
 })();
 </script>
+
+<style id="sh234-ui-fix">
+#sh233HostedBadge,#sh232HostedBadge,#sh232UpdateBanner{display:none!important;visibility:hidden!important;pointer-events:none!important}
+#sh234HostedBadge{position:fixed;right:12px;bottom:12px;z-index:100004;background:#0b6b3a;color:#fff;padding:6px 10px;border-radius:999px;font-size:11px;box-shadow:0 4px 12px rgba(0,0,0,.15);font-family:inherit}
+</style>
+<script id="sh234-single-source-system-sites">
+/* ===== Build 234: one authoritative system/site source for dropdown + validation ===== */
+(function(){
+  const BUILD=234;
+  const EXACT={
+    '45':['Super Pay Me','Grabpoints','Zoombucks','Branded Surveys','FiveSurvey','TopSurvey'],
+    '42':['Branded Surveys','FiveSurvey','TopSurvey','Grabpoints','Zoombucks'],
+    '27':['FiveSurvey','TopSurvey','Branded Surveys','Heycash','Paidwork'],
+    '69':['FiveSurvey','TopSurvey','Branded Surveys','Grabpoints','Zoombucks','Survey Junkie','Paidwork'],
+    '52':['FiveSurvey','TopSurvey','Paidwork'],
+    '627':['FiveSurvey','TopSurvey','Branded Surveys','Grabpoints','Zoombucks','Paidwork'],
+    '81':['FiveSurvey','TopSurvey','Branded Surveys','Grabpoints','Zoombucks','Timebucks'],
+    '47':['FiveSurvey','TopSurvey','Branded Surveys','Grabpoints','Zoombucks','Paidwork']
+  };
+  window.SURVEYHUB_BUILD=BUILD; window.SURVEYHUB_EXACT_SYSTEM_SITES=EXACT;
+  const norm=v=>String(v||'').trim().toLowerCase().replace(/\s+/g,' ');
+  const sitesFor=id=>[...(EXACT[String(id||'').trim()]||[])];
+  const valid=(id,site)=>sitesFor(id).some(s=>norm(s)===norm(site));
+
+  window.sh143SiteOptions=id=>sitesFor(id);
+  window.sh143RenderSiteOptions=function(){
+    const id=String(document.getElementById('sh143System')?.value||'').trim();
+    const el=document.getElementById('sh143Site'); if(!el)return;
+    const sites=sitesFor(id);
+    el.innerHTML=!id?'<option value="">Select an ID / System first</option>':sites.length?'<option value="">Select survey site</option>'+sites.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join(''):'<option value="">No survey sites configured for this ID</option>';
+    el.disabled=!id||!sites.length;
+    try{sh143RenderUnitOptions();}catch(e){}
+  };
+  window.sh143SubmissionSystemChanged=function(){window.sh143RenderSiteOptions();};
+  try{sh143SiteOptions=window.sh143SiteOptions;sh143RenderSiteOptions=window.sh143RenderSiteOptions;sh143SubmissionSystemChanged=window.sh143SubmissionSystemChanged;}catch(e){}
+
+  // Replace accumulated legacy Add Result wrappers with the clean builder logic + this exact validation.
+  window.sh143AddEntry=function(){
+    const id=String(document.getElementById('sh143System')?.value||'').trim();
+    const site=String(document.getElementById('sh143Site')?.value||'').trim();
+    const unit=String(document.getElementById('sh143Unit')?.value||'').trim();
+    const rawAmount=String(document.getElementById('sh143Amount')?.value||'').trim();
+    const msg=document.getElementById('workerPortalSubmitMsg');
+    if(!id){if(msg)msg.innerHTML='<p class="bad">Select the ID/system you worked on.</p>';return;}
+    if(!site){if(msg)msg.innerHTML='<p class="bad">Select the survey site.</p>';return;}
+    if(!valid(id,site)){if(msg)msg.innerHTML=`<p class="bad">${esc(site)} is not configured for ID ${esc(id)}.</p>`;return;}
+    if(!unit){if(msg)msg.innerHTML='<p class="bad">Select the unit used by the survey site.</p>';return;}
+    const parsed=sh144ParseAmountExpression(rawAmount);
+    if(!parsed.ok){if(msg)msg.innerHTML=`<p class="bad">${esc(parsed.error)}</p>`;return;}
+    const d=sh143GetDraft(); if(!d.date)d.date=sh143Today();
+    parsed.parts.forEach((part,partIndex)=>d.entries.push(sh143ConvertEntry({id,site,unit,value:part,expression:String(part),expressionGroup:parsed.expression,expressionIndex:partIndex})));
+    sh143SetDraft(d); const a=document.getElementById('sh143Amount');if(a)a.value=''; if(msg)msg.innerHTML=''; sh143RenderDraft();
+  };
+  try{sh143AddEntry=window.sh143AddEntry;}catch(e){}
+
+  function saveClean(){
+    const session=getWorkerPortalSession(); const name=String(session?.worker||'').trim(); const msg=document.getElementById('workerPortalSubmitMsg');
+    if(!name){if(msg)msg.innerHTML='<p class="bad">Your worker session has expired. Please log in again.</p>';return null;}
+    const d=sh143GetDraft();
+    if(!d.date||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d.date)){if(msg)msg.innerHTML='<p class="bad">Select a valid work date.</p>';return null;}
+    if(d.date>sh143Today()){if(msg)msg.innerHTML='<p class="bad">A future work date cannot be submitted.</p>';return null;}
+    if(!d.entries.length){if(msg)msg.innerHTML='<p class="bad">Add at least one survey result before submitting.</p>';return null;}
+    const bad=d.entries.find(e=>!valid(e.id,e.site)); if(bad){if(msg)msg.innerHTML=`<p class="bad">${esc(bad.site)} is not configured for ID ${esc(bad.id)}. Remove that entry and add it again.</p>`;return null;}
+    syncWorkerSubmissionsFromDedicatedStore();
+    const fingerprint=name+'|'+d.date+'|'+d.entries.map(e=>[e.id,e.site,e.value,e.unit].join(':')).join('|');
+    const duplicate=(state.workerSubmissions||[]).find(x=>x.worker===name&&x.fingerprint===fingerprint&&x.status==='pending');
+    if(duplicate){if(msg)msg.innerHTML='<p class="bad">This exact submission is already waiting for admin review.</p>';return null;}
+    const rates=sh108GetAdminRates(); const structuredEntries=d.entries.map(e=>({...e,submittedAt:new Date().toISOString()}));
+    const submission={id:'WS144-'+Date.now()+'-'+Math.random().toString(36).slice(2),worker:name,raw:sh143CanonicalRaw(d),submittedAt:new Date().toISOString(),status:'pending',fingerprint,reportDate:d.date,systemIds:[...new Set(d.entries.map(e=>String(e.id)))],structuredEntries,structuredResults:sh143StructuredResults(d.entries),submissionVersion:144,ratesSnapshot:rates,entryCount:d.entries.length,summary:sh143SubmissionSummary(d),sourceOfTruth:'structured-worker-entry'};
+    state.workerSubmissions.push(submission); saveDedicatedWorkerSubmissions();save();
+    audit('Report','Worker submitted structured daily report for admin review',{worker:name,submissionId:submission.id,reportDate:d.date,systemIds:submission.systemIds.join(', '),entries:d.entries.length,summary:submission.summary});
+    sh143SetDraft({date:d.date,entries:[]}); return submission;
+  }
+  window.sh143SubmitWorkerReport=async function(){
+    const msg=document.getElementById('workerPortalSubmitMsg'); const sub=saveClean(); if(!sub)return;
+    sub.sharedSyncStatus='sending'; try{saveDedicatedWorkerSubmissions();save();}catch(e){}
+    if(msg)msg.innerHTML='<p class="muted">Sending this exact report to the shared database…</p>';
+    try{
+      if(typeof window.sh159PostExactWorkerSubmission==='function') await window.sh159PostExactWorkerSubmission(sub);
+      else if(typeof window.sh156PushAndVerify==='function') await window.sh156PushAndVerify(sub);
+      if(msg)msg.innerHTML=`<p class="good">✓ Delivered and confirmed. Submission ${esc(sub.id)} is ready for admin review.</p>`;
+    }catch(e){sub.sharedSyncStatus='failed';sub.sharedSyncError=String(e.message||e);try{saveDedicatedWorkerSubmissions();save();}catch(_){} if(msg)msg.innerHTML='<p class="bad">Saved on this worker device, but NOT delivered to admin: '+esc(e.message||e)+'<br>Use Retry Sync for this report.</p>';}
+    try{renderWorkerPortalDashboard(sub.worker,sub.reportDate||'');}catch(e){}
+  };
+  try{sh143SubmitWorkerReport=window.sh143SubmitWorkerReport;}catch(e){}
+
+  function labels(){
+    try{document.title='SurveyHub Build 234 — Unified System Sites';let b=document.getElementById('sh234HostedBadge');if(!b){b=document.createElement('div');b.id='sh234HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 234';const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3&&t.nodeValue!=='📊 SurveyHub — Build 234 • Unified System Sites ')t.nodeValue='📊 SurveyHub — Build 234 • Unified System Sites ';}}catch(e){}
+  }
+  let labelGuard=false; function guard(){if(labelGuard)return;labelGuard=true;labels();setTimeout(()=>{labelGuard=false;},0);}
+  document.addEventListener('DOMContentLoaded',()=>{labels();try{window.sh143RenderSiteOptions();}catch(e){}}); if(document.readyState!=='loading'){labels();try{window.sh143RenderSiteOptions();}catch(e){}}
+  setInterval(labels,1500);
+})();
+</script>
