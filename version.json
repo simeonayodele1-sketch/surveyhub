@@ -1,7 +1,0 @@
-{
-  "build": 236,
-  "version": "236",
-  "label": "Build 236 — Shared Admin Dashboard",
-  "message": "Admin Dashboard now reads the published shared online dashboard ledger across devices. Processing publishes the updated ledger; refresh pulls it without pushing stale local state first.",
-  "url": "./index.html"
-}
