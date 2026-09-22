@@ -1,7 +1,0 @@
-{
-  "build": 235,
-  "version": "235",
-  "label": "Build 235 — Approved History Fix",
-  "message": "Processed Work History now reads approved processed submissions first, with payroll ledger fallback for historical dates.",
-  "url": "./index.html"
-}
