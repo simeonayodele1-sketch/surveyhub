@@ -1,0 +1,7 @@
+{
+  "build": 238,
+  "version": "238",
+  "label": "Build 238 — Payroll Boundary & History Actions",
+  "message": "Corrects the next payroll start from the latest closed payroll and repairs View Payroll and Payments actions in Payroll History.",
+  "url": "./index.html"
+}
