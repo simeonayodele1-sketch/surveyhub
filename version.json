@@ -1,0 +1,7 @@
+{
+  "build": 237,
+  "version": "237",
+  "label": "Build 237 — Payroll Period Start Fix",
+  "message": "The saved shared active payroll period now controls the normal Payroll Period Start field across devices. Closed payroll history and Test Payroll remain unchanged.",
+  "url": "./index.html"
+}
