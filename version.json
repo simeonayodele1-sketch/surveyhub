@@ -1,6 +1,0 @@
-{
-  "latestBuild": 245,
-  "build": 245,
-  "message": "Shared reversal synchronization fix: reversals now use one online registry and payroll/payment calculations refresh it before calculating.",
-  "url": "./index.html"
-}
