@@ -1,0 +1,7 @@
+{
+  "build": 239,
+  "version": "239",
+  "label": "Build 239 — Payroll Start Source Repair",
+  "message": "Repairs the normal payroll start from the latest closed or fully-paid payroll history boundary while preserving shared admin synchronization and payroll history actions.",
+  "url": "./index.html"
+}
