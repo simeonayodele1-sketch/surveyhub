@@ -1,7 +1,0 @@
-{
-  "build": 241,
-  "version": "241",
-  "label": "Build 241 \u2014 Payroll Period Final Fix",
-  "message": "Sets the confirmed active payroll period to 21 September 2026 and changes the core payroll initializer to preserve the active-period start instead of restoring the old 13-day default.",
-  "url": "./index.html"
-}
