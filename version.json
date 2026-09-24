@@ -1,7 +1,0 @@
-{
-  "build": 240,
-  "version": "240",
-  "label": "Build 240 — Shared Payroll Boundary",
-  "message": "Payroll Period Start now reads the latest active-period and payroll-closure boundary directly from the shared database.",
-  "url": "./index.html"
-}
