@@ -295,6 +295,13 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
       }
     }catch(e){}
   }
+  const lockObserver=new MutationObserver(()=>{
+    if(!document.documentElement.classList.contains('sh250-secure-lock')){
+      lockObserver.disconnect();
+      applyBuild252Label();
+    }
+  });
+  lockObserver.observe(document.documentElement,{attributes:true,attributeFilter:['class']});
   document.addEventListener('DOMContentLoaded',()=>setTimeout(applyBuild252Label,1200),{once:true});
   if(document.readyState!=='loading')setTimeout(applyBuild252Label,1200);
 })();
