@@ -270,6 +270,35 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
   document.addEventListener('DOMContentLoaded',start);
 })();
 </script>
+<style id="sh252-label-fix">
+  [id^="sh"][id$="HostedBadge"]{display:none!important}
+  #sh249HostedBadge{display:block!important}
+</style>
+<script id="sh252-label-fix-script">
+/* Build 252 hotfix: keep the current label authoritative without a refresh timer. */
+(function(){
+  function applyBuild252Label(){
+    try{
+      window.SURVEYHUB_BUILD=252;
+      document.title='SurveyHub Build 252 — Stable Mobile Display';
+      let badge=document.getElementById('sh249HostedBadge');
+      if(!badge){
+        badge=document.createElement('div');
+        badge.id='sh249HostedBadge';
+        document.body.appendChild(badge);
+      }
+      badge.textContent='SurveyHub Online • Build 252';
+      const top=document.querySelector('.top');
+      const textNode=top&&top.childNodes&&top.childNodes[0];
+      if(textNode&&textNode.nodeType===3){
+        textNode.nodeValue='📊 SurveyHub — Build 252 • Stable Mobile Display ';
+      }
+    }catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(applyBuild252Label,1200),{once:true});
+  if(document.readyState!=='loading')setTimeout(applyBuild252Label,1200);
+})();
+</script>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial;background:#f4f7fb;color:#172033}.top{background:#155eef;color:#fff;padding:16px 20px;font-size:21px;font-weight:700}
 .wrap{max-width:1250px;margin:auto;padding:18px}.nav{display:flex;gap:8px;overflow:auto;margin-bottom:15px}.nav button{border:0;padding:11px 14px;border-radius:8px;background:#e8eef8;font-weight:700;white-space:nowrap}.nav .active{background:#155eef;color:#fff}
