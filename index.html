@@ -2,8 +2,8 @@
 <html>
 <!-- Build 146: Hybrid structured submission + authoritative dashboard shares and repaired percentage persistence. -->
 <head>
-<meta name="surveyhub-build" content="251-session-persistence"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SurveyHub Build 251 — Persistent Secure Sessions</title>
+<meta name="surveyhub-build" content="252-stable-mobile-display"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SurveyHub Build 252 — Stable Mobile Display</title>
 <style id="sh250-secure-css">html.sh250-secure-lock body > *:not(#sh250Auth){display:none!important}
 html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
 #sh250Auth{position:fixed;inset:0;z-index:1000000;display:flex;align-items:center;justify-content:center;padding:18px;background:linear-gradient(145deg,#e8f0ff,#f8fbff)}
@@ -15,10 +15,10 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
 .sh250-msg{min-height:22px;margin-top:14px;color:#b42318;font-weight:700;font-size:14px}
 #sh250MyPayment{border-left:5px solid #155eef}
 </style>
-<script id="sh250-secure-boot">/* SurveyHub Build 251 secure Supabase authentication and persistent session bridge. */
+<script id="sh250-secure-boot">/* SurveyHub Build 252 secure Supabase authentication, persistent sessions, and stable mobile display. */
 (function(){
   'use strict';
-  const BUILD=251;
+  const BUILD=252;
   const URL='https://tbyygxvhamkorxfqfxat.supabase.co';
   const KEY='sb_publishable_fhytmLMC44iJU6RktDeZoQ_jT9L4rMJ';
   const SESSION_KEY='surveyhub_secure_session_v250';
@@ -218,7 +218,7 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
 
   function shell(inner){
     let el=document.getElementById('sh250Auth');if(!el){el=document.createElement('div');el.id='sh250Auth';document.body.appendChild(el)}
-    el.innerHTML='<div class="sh250-card"><div class="sh250-badge">SURVEYHUB SECURE • BUILD 251</div>'+inner+'</div>';
+    el.innerHTML='<div class="sh250-card"><div class="sh250-badge">SURVEYHUB SECURE • BUILD 252</div>'+inner+'</div>';
     return el;
   }
   function showLogin(error){
@@ -6617,7 +6617,7 @@ init();
 // with only the placeholder on a fresh page load.
 if(typeof renderWorkerPasswordControls==='function') renderWorkerPasswordControls();
 
-/* Build 251: preserve the authenticated admin session across page refreshes. */
+/* Build 252: preserve the authenticated admin session across page refreshes. */
 
 /* Build 79 fix: the Worker Portal overlay is declared later in the HTML.
    Build 77 attempted to open it before that element existed, then applied
@@ -16925,8 +16925,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }
   let labelGuard=false; function guard(){if(labelGuard)return;labelGuard=true;labels();setTimeout(()=>{labelGuard=false;},0);}
   document.addEventListener('DOMContentLoaded',()=>{labels();try{window.sh143RenderSiteOptions();}catch(e){}}); if(document.readyState!=='loading'){labels();try{window.sh143RenderSiteOptions();}catch(e){}}
-  setInterval(labels,1500);
-})();
+  })();
 </script>
 
 <style id="sh235-history-fix-css">
@@ -16970,8 +16969,7 @@ document.addEventListener('DOMContentLoaded',function(){
   window.onWorkerPortalDateChange=function(){const n=sessionWorker(),d=document.getElementById('workerPortalDate')?.value||'';if(n)render(n,d);};try{onWorkerPortalDateChange=window.onWorkerPortalDateChange;}catch(e){}
   const prev=window.renderWorkerPortalDashboard;window.renderWorkerPortalDashboard=function(name,date){const r=typeof prev==='function'?prev.apply(this,arguments):undefined;setTimeout(()=>{const n=String(name||sessionWorker()).trim();if(n)render(n,date||document.getElementById('workerPortalDate')?.value||'');},20);return r;};try{renderWorkerPortalDashboard=window.renderWorkerPortalDashboard;}catch(e){}
   function labels(){try{document.title='SurveyHub Build 235 — Approved History Fix';let b=document.getElementById('sh235HostedBadge');if(!b){b=document.createElement('div');b.id='sh235HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 235';const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 235 • Approved History Fix ';}}catch(e){}}
-  document.addEventListener('DOMContentLoaded',()=>{labels();setTimeout(()=>{const n=sessionWorker();if(n)render(n,document.getElementById('workerPortalDate')?.value||'');},1300);});if(document.readyState!=='loading')labels();setInterval(labels,1500);
-})();
+  document.addEventListener('DOMContentLoaded',()=>{labels();setTimeout(()=>{const n=sessionWorker();if(n)render(n,document.getElementById('workerPortalDate')?.value||'');},1300);});if(document.readyState!=='loading')labels();})();
 </script>
 
 <style id="sh236-shared-admin-dashboard-css">
@@ -17030,8 +17028,7 @@ document.addEventListener('DOMContentLoaded',function(){
   // On admin login/background startup, pull the published ledger without pushing this device's stale state first.
   setTimeout(async()=>{try{if(typeof currentAdmin==='function'&&currentAdmin()){await pullLedger236();renderShared236();}}catch(e){console.warn('Build 236 initial dashboard pull failed',e);}},1800);
   function labels(){try{document.title='SurveyHub Build 236 — Shared Admin Dashboard';let b=document.getElementById('sh236HostedBadge');if(!b){b=document.createElement('div');b.id='sh236HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 236';const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 236 • Shared Admin Dashboard ';}}catch(e){}}
-  document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();setInterval(labels,1500);
-})();
+  document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();})();
 </script>
 
 <style id="sh237-payroll-period-css">#sh237HostedBadge{position:fixed;right:12px;bottom:12px;z-index:100007;background:#0b6b3a;color:#fff;padding:6px 10px;border-radius:999px;font-size:11px;box-shadow:0 4px 12px rgba(0,0,0,.15);font-family:inherit}#sh236HostedBadge,#sh235HostedBadge,#sh234HostedBadge,#sh233HostedBadge,#sh232HostedBadge{display:none!important}</style>
@@ -17052,8 +17049,7 @@ document.addEventListener('DOMContentLoaded',function(){
  document.addEventListener('click',e=>{const b=e.target?.closest?.('[data-tab="payroll"]');if(b)setTimeout(apply,30);});
  document.addEventListener('DOMContentLoaded',()=>setTimeout(apply,1300));setTimeout(apply,2200);
  function labels(){try{document.title='SurveyHub Build 237 — Payroll Period Start Fix';let b=document.getElementById('sh237HostedBadge');if(!b){b=document.createElement('div');b.id='sh237HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 237';const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 237 • Payroll Period Start Fix ';}}catch(e){}}
- document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();setInterval(labels,1500);
-})();
+ document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();})();
 </script>
 
 <style id="sh238-payroll-repair-css">
@@ -17116,8 +17112,7 @@ document.addEventListener('DOMContentLoaded',function(){
  document.addEventListener('click',e=>{if(e.target?.closest?.('[data-tab="payroll"]'))setTimeout(repairAndApply,50);});
  document.addEventListener('DOMContentLoaded',()=>setTimeout(repairAndApply,1200));setTimeout(repairAndApply,2200);
  function labels(){try{document.title='SurveyHub Build 238 — Payroll Boundary & History Actions';let b=document.getElementById('sh238HostedBadge');if(!b){b=document.createElement('div');b.id='sh238HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 238';const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 238 • Payroll Boundary & History Actions ';}}catch(e){}}
- document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();setInterval(labels,1500);
-})();
+ document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();})();
 </script>
 
 <style id="sh239-payroll-authoritative-css">
@@ -17146,8 +17141,7 @@ document.addEventListener('DOMContentLoaded',function(){
  document.addEventListener('click',e=>{if(e.target?.closest?.('[data-tab="payroll"]'))setTimeout(apply,40);});
  document.addEventListener('DOMContentLoaded',()=>setTimeout(apply,900));setTimeout(apply,1600);setInterval(()=>{const p=document.getElementById('payroll');if(p&&!p.classList.contains('hidden'))apply();},2500);
  function labels(){try{document.title='SurveyHub Build 239 — Payroll Start Source Repair';let b=document.getElementById('sh239HostedBadge');if(!b){b=document.createElement('div');b.id='sh239HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 239';const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 239 • Payroll Start Source Repair ';}}catch(e){}}
- document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();setInterval(labels,1500);
-})();
+ document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();})();
 </script>
 
 <style id="sh240-payroll-source-css">
@@ -17182,8 +17176,7 @@ document.addEventListener('DOMContentLoaded',function(){
  document.addEventListener('click',e=>{if(e.target?.closest?.('[data-tab="payroll"]'))setTimeout(apply,80);});
  document.addEventListener('DOMContentLoaded',()=>setTimeout(apply,700));setTimeout(apply,1400);setInterval(()=>{const p=document.getElementById('payroll');if(p&&!p.classList.contains('hidden'))apply();},1800);
  function labels(){try{document.title='SurveyHub Build 240 — Shared Payroll Boundary';let b=document.getElementById('sh240HostedBadge');if(!b){b=document.createElement('div');b.id='sh240HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 240';const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 240 • Shared Payroll Boundary ';}}catch(e){}}
- document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();setInterval(labels,1500);
-})();
+ document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();})();
 </script>
 
 
@@ -17223,8 +17216,7 @@ document.addEventListener('DOMContentLoaded',function(){
  document.addEventListener('DOMContentLoaded',()=>setTimeout(enforce,250));
  setTimeout(enforce,700);
  function labels(){try{document.title='SurveyHub Build 241 — Payroll Period Final Fix';let b=document.getElementById('sh241HostedBadge');if(!b){b=document.createElement('div');b.id='sh241HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 241';const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 241 • Payroll Period Final Fix ';}}catch(e){}}
- document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();setInterval(labels,1500);
-})();
+ document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();})();
 </script>
 
 
@@ -17253,8 +17245,7 @@ document.addEventListener('DOMContentLoaded',function(){
  document.addEventListener('DOMContentLoaded',()=>setTimeout(async()=>{try{const l=local();if(l.length)await pushHistory(l);else await pullHistory();}catch(e){}await syncAndRender();},900));
  setTimeout(()=>{try{const l=local();if(l.length)pushHistory(l).catch(()=>{});}catch(e){}},1800);
  function labels(){try{document.title='SurveyHub Build 242 — Shared Payroll History';let b=document.getElementById('sh242HostedBadge');if(!b){b=document.createElement('div');b.id='sh242HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 242';const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 242 • Shared Payroll History ';}}catch(e){}}
- document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();setInterval(labels,1500);
-})();
+ document.addEventListener('DOMContentLoaded',labels);if(document.readyState!=='loading')labels();})();
 </script>
 
 <style id="sh243-system19-css">
@@ -17322,8 +17313,7 @@ document.addEventListener('DOMContentLoaded',function(){
  }
  function labels(){try{document.title='SurveyHub Build 243 — ID 19 + ID 81 SuperPayMe';let b=document.getElementById('sh243HostedBadge');if(!b){b=document.createElement('div');b.id='sh243HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 243';const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 243 • ID 19 + ID 81 SuperPayMe ';}}catch(e){}}
  function init(){syncSystemConfig();syncProfile();labels();try{window.sh143RenderSiteOptions();}catch(e){}}
- document.addEventListener('DOMContentLoaded',init);if(document.readyState!=='loading')init();setTimeout(init,600);setInterval(labels,1500);
-})();
+ document.addEventListener('DOMContentLoaded',init);if(document.readyState!=='loading')init();setTimeout(init,600);})();
 </script>
 
 <style id="sh244-validation-fix-css">
@@ -17346,8 +17336,7 @@ document.addEventListener('DOMContentLoaded',function(){
  }
  document.addEventListener('DOMContentLoaded',labels);
  if(document.readyState!=='loading')labels();
- setInterval(labels,1500);
-})();
+ })();
 </script>
 
 <style id="sh245-reversal-sync-css">
@@ -17444,8 +17433,7 @@ document.addEventListener('DOMContentLoaded',function(){
     labels();
   },100));
   if(document.readyState!=='loading'){labels();}
-  setInterval(labels,1500);
-})();
+  })();
 </script>
 
 <style id="sh246-id16-css">
@@ -17502,8 +17490,7 @@ document.addEventListener('DOMContentLoaded',function(){
   document.addEventListener('DOMContentLoaded',init);
   if(document.readyState!=='loading')init();
   setTimeout(init,500);
-  setInterval(labels,1500);
-})();
+  })();
 </script>
 
 <style id="sh249-live-start-css">
@@ -17533,14 +17520,14 @@ document.addEventListener('DOMContentLoaded',function(){
 
   function labels(){
     try{
-      document.title='SurveyHub Build 251 — Persistent Secure Sessions';
+      document.title='SurveyHub Build 252 — Stable Mobile Display';
       let b=document.getElementById('sh249HostedBadge');
       if(!b){b=document.createElement('div');b.id='sh249HostedBadge';document.body.appendChild(b);}
-      b.textContent='SurveyHub Online • Build 251';
+      b.textContent='SurveyHub Online • Build 252';
       const top=document.querySelector('.top');
       if(top&&top.childNodes?.length){
         const t=top.childNodes[0];
-        if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 251 • Persistent Secure Sessions ';
+        if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 252 • Stable Mobile Display ';
       }
     }catch(e){}
   }
@@ -17726,7 +17713,6 @@ document.addEventListener('DOMContentLoaded',function(){
     // Poll until an authorized Admin session exists, then run exactly once online.
     let tries=0;
     const timer=setInterval(async()=>{
-      labels();
       tries++;
       if(finished){clearInterval(timer);return;}
       if(canManage()&&ready()){
@@ -17740,6 +17726,5 @@ document.addEventListener('DOMContentLoaded',function(){
 
   document.addEventListener('DOMContentLoaded',init);
   if(document.readyState!=='loading')init();
-  setInterval(labels,1500);
-})();
+  })();
 </script>
