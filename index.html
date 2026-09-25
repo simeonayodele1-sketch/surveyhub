@@ -112,6 +112,38 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
     }
   }
 
+  async function applyCurrentLiveEpoch(){
+    try{
+      const rows=await rest('surveyhub_records','?record_key=eq.LIVE-EPOCH&select=payload,updated_at&order=updated_at.desc&limit=1',{method:'GET'});
+      const raw=String(rows?.[0]?.payload?.startedAt||rows?.[0]?.updated_at||'').trim();
+      const epoch=raw&&!Number.isNaN(Date.parse(raw))?new Date(raw).toISOString():'';
+      if(!epoch||localStorage.getItem('surveyhub_live_epoch_applied_v1')===epoch)return false;
+      if(typeof state!=='undefined'){
+        state.records=[];state.reversals=[];state.withdrawals={};state.withdrawalMeta={};
+        state.workerSubmissions=[];state.payrollPayments={};
+      }
+      [
+        'surveyhub_worker_submissions_v1','surveyhub_worker_submission_draft_v1',
+        'surveyhub_selected_pending_submission_v158','surveyhub_payroll_history_v1',
+        'surveyhub_payroll_payment_status_v2','surveyhub_payroll_payments_v1',
+        'surveyhub_activity_log_v1','surveyhub_build48_history_seeded',
+        'surveyhub_worker_systems_today_v1'
+      ].forEach(k=>localStorage.removeItem(k));
+      localStorage.setItem('surveyhub_worker_submissions_v1','[]');
+      localStorage.setItem('surveyhub_payroll_history_v1','[]');
+      localStorage.setItem('surveyhub_payroll_payment_status_v2','{}');
+      localStorage.setItem('surveyhub_payroll_payments_v1','{}');
+      localStorage.setItem('surveyhub_activity_log_v1','[]');
+      localStorage.setItem('surveyhub_live_epoch_applied_v1',epoch);
+      localStorage.setItem('surveyhub_live_generation_repair_v249',epoch);
+      if(typeof state!=='undefined')localStorage.setItem('surveyhub29',JSON.stringify(state));
+      return true;
+    }catch(error){
+      console.warn('Live-start cleanup could not be checked',error);
+      return false;
+    }
+  }
+
   function addWorkerBankCard(profile){
     if(profile.role!=='worker')return;
     const row=(window.CFG?.workers||[])[0];if(!row)return;
@@ -206,7 +238,7 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
     try{
       const current=await refreshSession();
       if(!current){showLogin();return}
-      const profile=await profileForSession();await hydrate(profile);
+      const profile=await profileForSession();await hydrate(profile);await applyCurrentLiveEpoch();
       if(profile.must_change_password){showPasswordChange(profile);return}
       installAdminTools(profile);
       unlock(profile);
