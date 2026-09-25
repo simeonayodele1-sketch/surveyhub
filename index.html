@@ -112,6 +112,16 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
     }
   }
 
+  function applyWorkerLedgerReset252(profile){
+    if(String(profile?.role||'')!=='worker')return false;
+    const marker='surveyhub_worker_ledger_reset_252_v2';
+    if(localStorage.getItem(marker)==='done')return false;
+    localStorage.removeItem('surveyhub_worker_payroll_ledger_v1');
+    Object.keys(localStorage).filter(k=>k.startsWith('surveyhub_worker_payroll_snapshots_v211|')).forEach(k=>localStorage.removeItem(k));
+    localStorage.setItem(marker,'done');
+    return true;
+  }
+
   async function applyCurrentLiveEpoch(){
     try{
       const rows=await rest('surveyhub_records','?record_key=eq.LIVE-EPOCH&select=payload,updated_at&order=updated_at.desc&limit=1',{method:'GET'});
@@ -239,7 +249,7 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
     try{
       const current=await refreshSession();
       if(!current){showLogin();return}
-      const profile=await profileForSession();await hydrate(profile);await applyCurrentLiveEpoch();
+      const profile=await profileForSession();await hydrate(profile);applyWorkerLedgerReset252(profile);await applyCurrentLiveEpoch();
       if(profile.must_change_password){showPasswordChange(profile);return}
       installAdminTools(profile);
       unlock(profile);
