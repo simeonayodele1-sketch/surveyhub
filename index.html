@@ -2,8 +2,8 @@
 <html>
 <!-- Build 146: Hybrid structured submission + authoritative dashboard shares and repaired percentage persistence. -->
 <head>
-<meta name="surveyhub-build" content="250-secure-worker-access"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SurveyHub Build 250 — Secure Worker Access</title>
+<meta name="surveyhub-build" content="251-session-persistence"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SurveyHub Build 251 — Persistent Secure Sessions</title>
 <style id="sh250-secure-css">html.sh250-secure-lock body > *:not(#sh250Auth){display:none!important}
 html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
 #sh250Auth{position:fixed;inset:0;z-index:1000000;display:flex;align-items:center;justify-content:center;padding:18px;background:linear-gradient(145deg,#e8f0ff,#f8fbff)}
@@ -15,18 +15,16 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
 .sh250-msg{min-height:22px;margin-top:14px;color:#b42318;font-weight:700;font-size:14px}
 #sh250MyPayment{border-left:5px solid #155eef}
 </style>
-<script id="sh250-secure-boot">/* SurveyHub Build 250 secure Supabase authentication and data bridge. */
+<script id="sh250-secure-boot">/* SurveyHub Build 251 secure Supabase authentication and persistent session bridge. */
 (function(){
   'use strict';
-  const BUILD=250;
+  const BUILD=251;
   const URL='https://tbyygxvhamkorxfqfxat.supabase.co';
   const KEY='sb_publishable_fhytmLMC44iJU6RktDeZoQ_jT9L4rMJ';
   const SESSION_KEY='surveyhub_secure_session_v250';
   const nativeFetch=window.fetch.bind(window);
 
   document.documentElement.classList.add('sh250-secure-lock');
-  localStorage.removeItem('surveyhub_admin_session_v1');
-  localStorage.removeItem('surveyhub_worker_portal_session_v1');
 
   function session(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch(_){return null}}
   function saveSession(value){value?localStorage.setItem(SESSION_KEY,JSON.stringify(value)):localStorage.removeItem(SESSION_KEY)}
@@ -63,7 +61,11 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
     const res=await nativeFetch(URL+path,Object.assign({},options||{},{headers:Object.assign(h,options?.headers||{})}));
     const raw=await res.text();
     let data=null;try{data=raw?JSON.parse(raw):null}catch(_){data=raw}
-    if(!res.ok)throw new Error(data?.msg||data?.message||data?.error_description||('Request failed ('+res.status+')'));
+    if(!res.ok){
+      const error=new Error(data?.msg||data?.message||data?.error_description||('Request failed ('+res.status+')'));
+      error.status=res.status;
+      throw error;
+    }
     return data;
   }
 
@@ -75,7 +77,10 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
     try{
       const next=await api('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:JSON.stringify({refresh_token:current.refresh_token})});
       next.expires_at=Math.floor(Date.now()/1000)+Number(next.expires_in||3600);saveSession(next);return next;
-    }catch(_){saveSession(null);return null}
+    }catch(error){
+      if(error?.status===400||error?.status===401){saveSession(null);return null}
+      throw error;
+    }
   }
 
   async function rest(table,query,options){return api('/rest/v1/'+table+(query||''),options)}
@@ -198,25 +203,33 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
   }
 
   async function start(){
-    const current=await refreshSession();
-    if(!current){showLogin();return}
     try{
+      const current=await refreshSession();
+      if(!current){showLogin();return}
       const profile=await profileForSession();await hydrate(profile);
       if(profile.must_change_password){showPasswordChange(profile);return}
       installAdminTools(profile);
       unlock(profile);
-    }catch(e){saveSession(null);showLogin(e.message)}
+    }catch(e){
+      if(e?.status===400||e?.status===401){saveSession(null);showLogin(e.message);return}
+      showSessionError(e.message);
+    }
   }
 
   function shell(inner){
     let el=document.getElementById('sh250Auth');if(!el){el=document.createElement('div');el.id='sh250Auth';document.body.appendChild(el)}
-    el.innerHTML='<div class="sh250-card"><div class="sh250-badge">SURVEYHUB SECURE • BUILD 250</div>'+inner+'</div>';
+    el.innerHTML='<div class="sh250-card"><div class="sh250-badge">SURVEYHUB SECURE • BUILD 251</div>'+inner+'</div>';
     return el;
   }
   function showLogin(error){
     const el=shell('<h1>SurveyHub Login</h1><p>Admins may use their email. Workers should use their SurveyHub username.</p><label>Username or email</label><input id="sh250Identifier" autocomplete="username" placeholder="Worker username or admin email"><label>Password</label><input id="sh250Password" type="password" autocomplete="current-password" placeholder="Enter password"><button id="sh250LoginBtn" class="primary">Sign in</button><button id="sh250ActivateBtn" class="secondary">Activate Super Admin</button><div id="sh250Msg" class="sh250-msg">'+(error||'')+'</div>');
     el.querySelector('#sh250LoginBtn').onclick=login;
     el.querySelector('#sh250ActivateBtn').onclick=activateAdmin;
+  }
+  function showSessionError(error){
+    const el=shell('<h1>Connection interrupted</h1><p>Your login is still saved. Check your connection and try again.</p><button id="sh251RetryBtn" class="primary">Retry</button><button id="sh251SignOutBtn" class="secondary">Sign out</button><div class="sh250-msg">'+String(error||'Unable to restore the session.')+'</div>');
+    el.querySelector('#sh251RetryBtn').onclick=start;
+    el.querySelector('#sh251SignOutBtn').onclick=window.sh250SignOut;
   }
   async function login(){
     const msg=document.getElementById('sh250Msg');msg.textContent='Signing in…';
@@ -6604,10 +6617,7 @@ init();
 // with only the placeholder on a fresh page load.
 if(typeof renderWorkerPasswordControls==='function') renderWorkerPasswordControls();
 
-/* Build 69: require explicit admin login on every app launch. */
-try{
-  localStorage.removeItem(ADMIN_SESSION_KEY);
-}catch(e){}
+/* Build 251: preserve the authenticated admin session across page refreshes. */
 
 /* Build 79 fix: the Worker Portal overlay is declared later in the HTML.
    Build 77 attempted to open it before that element existed, then applied
@@ -17523,14 +17533,14 @@ document.addEventListener('DOMContentLoaded',function(){
 
   function labels(){
     try{
-      document.title='SurveyHub Build 250 — Generation-Safe Live Start';
+      document.title='SurveyHub Build 251 — Persistent Secure Sessions';
       let b=document.getElementById('sh249HostedBadge');
       if(!b){b=document.createElement('div');b.id='sh249HostedBadge';document.body.appendChild(b);}
-      b.textContent='SurveyHub Online • Build 250';
+      b.textContent='SurveyHub Online • Build 251';
       const top=document.querySelector('.top');
       if(top&&top.childNodes?.length){
         const t=top.childNodes[0];
-        if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 250 • Generation-Safe Live Start ';
+        if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 251 • Persistent Secure Sessions ';
       }
     }catch(e){}
   }
