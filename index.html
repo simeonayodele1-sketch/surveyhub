@@ -2,8 +2,261 @@
 <html>
 <!-- Build 146: Hybrid structured submission + authoritative dashboard shares and repaired percentage persistence. -->
 <head>
-<meta name="surveyhub-build" content="213-exact-admin-report-history"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SurveyHub Build 218</title>
+<meta name="surveyhub-build" content="250-secure-worker-access"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SurveyHub Build 250 — Secure Worker Access</title>
+<style id="sh250-secure-css">html.sh250-secure-lock body > *:not(#sh250Auth){display:none!important}
+html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
+#sh250Auth{position:fixed;inset:0;z-index:1000000;display:flex;align-items:center;justify-content:center;padding:18px;background:linear-gradient(145deg,#e8f0ff,#f8fbff)}
+.sh250-card{width:min(100%,460px);background:#fff;border-radius:20px;padding:26px;box-shadow:0 18px 50px rgba(23,32,51,.16);border-top:5px solid #155eef}
+.sh250-card h1{margin:12px 0 8px;color:#172554}.sh250-card p{color:#667085;line-height:1.5}
+.sh250-card input{width:100%;margin-bottom:12px;padding:13px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px}
+.sh250-card button{width:100%;margin-top:10px;padding:13px;border-radius:10px;font-weight:800}
+.sh250-badge{display:inline-block;background:#e8f0ff;color:#155eef;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800}
+.sh250-msg{min-height:22px;margin-top:14px;color:#b42318;font-weight:700;font-size:14px}
+#sh250MyPayment{border-left:5px solid #155eef}
+</style>
+<script id="sh250-secure-boot">/* SurveyHub Build 250 secure Supabase authentication and data bridge. */
+(function(){
+  'use strict';
+  const BUILD=250;
+  const URL='https://tbyygxvhamkorxfqfxat.supabase.co';
+  const KEY='sb_publishable_fhytmLMC44iJU6RktDeZoQ_jT9L4rMJ';
+  const SESSION_KEY='surveyhub_secure_session_v250';
+  const nativeFetch=window.fetch.bind(window);
+
+  document.documentElement.classList.add('sh250-secure-lock');
+  localStorage.removeItem('surveyhub_admin_session_v1');
+  localStorage.removeItem('surveyhub_worker_portal_session_v1');
+
+  function session(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch(_){return null}}
+  function saveSession(value){value?localStorage.setItem(SESSION_KEY,JSON.stringify(value)):localStorage.removeItem(SESSION_KEY)}
+  function headers(extra){return Object.assign({'apikey':KEY,'Content-Type':'application/json','Accept':'application/json'},extra||{})}
+  function workerEmail(username){
+    const raw=String(username||'').trim().toLowerCase();
+    let hash=2166136261;
+    for(let i=0;i<raw.length;i++){hash^=raw.charCodeAt(i);hash=Math.imul(hash,16777619)}
+    const slug=raw.replace(/[^a-z0-9]+/g,'.').replace(/^\.+|\.+$/g,'').slice(0,38)||'worker';
+    return slug+'.'+(hash>>>0).toString(16).padStart(8,'0')+'@workers.surveyhub.local';
+  }
+  function authEmail(identifier){const v=String(identifier||'').trim();return v.includes('@')?v.toLowerCase():workerEmail(v)}
+  function jwtPayload(token){try{return JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch(_){return {}}}
+
+  window.fetch=async function(input,init){
+    const requestUrl=typeof input==='string'?input:String(input&&input.url||'');
+    if(requestUrl.startsWith(URL+'/rest/v1/surveyhub_')){
+      const current=session();
+      if(!current?.access_token){
+        return new Response(JSON.stringify({message:'SurveyHub login required'}),{status:401,headers:{'Content-Type':'application/json'}});
+      }
+      const next=Object.assign({},init||{});
+      const h=new Headers((init&&init.headers)||(input instanceof Request?input.headers:undefined));
+      h.set('apikey',KEY);h.set('Authorization','Bearer '+current.access_token);
+      next.headers=h;
+      return nativeFetch(input,next);
+    }
+    return nativeFetch(input,init);
+  };
+
+  async function api(path,options){
+    const current=session();
+    const h=headers(current?.access_token?{'Authorization':'Bearer '+current.access_token}:{});
+    const res=await nativeFetch(URL+path,Object.assign({},options||{},{headers:Object.assign(h,options?.headers||{})}));
+    const raw=await res.text();
+    let data=null;try{data=raw?JSON.parse(raw):null}catch(_){data=raw}
+    if(!res.ok)throw new Error(data?.msg||data?.message||data?.error_description||('Request failed ('+res.status+')'));
+    return data;
+  }
+
+  async function refreshSession(){
+    const current=session();
+    if(!current?.refresh_token)return null;
+    const expires=Number(current.expires_at||0);
+    if(expires>Date.now()/1000+90)return current;
+    try{
+      const next=await api('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:JSON.stringify({refresh_token:current.refresh_token})});
+      next.expires_at=Math.floor(Date.now()/1000)+Number(next.expires_in||3600);saveSession(next);return next;
+    }catch(_){saveSession(null);return null}
+  }
+
+  async function rest(table,query,options){return api('/rest/v1/'+table+(query||''),options)}
+  function permissions(){return {dashboard:true,reports:true,workerSubmissions:true,history:true,audit:true,daily:true,payroll:true,payrollGenerate:true,payrollPaid:true,withdrawals:true,reversals:true,workers:true,systems:true,backup:true}}
+
+  async function hydrate(profile){
+    const role=String(profile.role||'');
+    const workers=await rest('surveyhub_private_workers',role==='worker'?('?username=eq.'+encodeURIComponent(profile.username)):'?select=*',{method:'GET'});
+    if(window.CFG)CFG.workers=(workers||[]).map(w=>[w.username,w.phone,w.bank_wallet,w.account_number,w.account_name,w.full_name]);
+    localStorage.setItem('surveyhub_workers_v1',JSON.stringify(window.CFG?.workers||[]));
+
+    const resources=await rest('surveyhub_shared_resources','?active=eq.true&select=resource_type,resource_id,payload',{method:'GET'});
+    const rust={};const profiles=[];
+    (resources||[]).forEach(r=>{
+      if(r.resource_type==='rustdesk')rust[String(r.resource_id)]=r.payload||{};
+      if(r.resource_type==='survey_profile')profiles.push(Object.assign({},r.payload||{},{id:r.resource_id}));
+    });
+    window.SURVEYHUB_RUSTDESK_BY_SYSTEM=rust;
+    localStorage.setItem('surveyhub_rustdesk_logins_v1',JSON.stringify(Object.values(rust)));
+    localStorage.setItem('surveyhub_profiles_v1',JSON.stringify(profiles));
+
+    if(role==='worker'){
+      localStorage.setItem('surveyhub_worker_portal_session_v1',JSON.stringify({worker:profile.username,loggedAt:new Date().toISOString()}));
+      localStorage.setItem('surveyhub_worker_passwords_v1',JSON.stringify({[profile.username]:'SUPABASE_AUTH'}));
+    }else{
+      const account={username:profile.username,displayName:profile.display_name||profile.username,role,permissions:permissions(),passwordHash:'SUPABASE_AUTH'};
+      localStorage.setItem('surveyhub_admin_accounts_v1',JSON.stringify([account]));
+      localStorage.setItem('surveyhub_admin_session_v1',JSON.stringify({username:profile.username,loginAt:new Date().toISOString()}));
+    }
+  }
+
+  function addWorkerBankCard(profile){
+    if(profile.role!=='worker')return;
+    const row=(window.CFG?.workers||[])[0];if(!row)return;
+    const root=document.getElementById('workerPortalDashboard');if(!root||document.getElementById('sh250MyPayment'))return;
+    const box=document.createElement('div');box.id='sh250MyPayment';box.className='worker-profile-card';
+    const clean=v=>String(v||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    box.innerHTML='<h3>💳 My Payment Details</h3><p><strong>Bank/Wallet:</strong> '+clean(row[2])+'</p><p><strong>Account Number:</strong> '+clean(row[3])+'</p><p><strong>Account Name:</strong> '+clean(row[4])+'</p>';
+    root.appendChild(box);
+  }
+
+  async function manageUsers(payload){
+    const current=session();
+    const res=await nativeFetch(URL+'/functions/v1/surveyhub-manage-users',{
+      method:'POST',headers:headers({'Authorization':'Bearer '+current.access_token}),body:JSON.stringify(payload)
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.error||'Worker login operation failed.');
+    return data;
+  }
+
+  async function syncPrivateWorkers(){
+    const rows=(window.CFG?.workers||[]).map(w=>({username:w[0],phone:w[1]||'',bank_wallet:w[2]||'',account_number:w[3]||'',account_name:w[4]||'',full_name:w[5]||w[4]||'',active:true,updated_at:new Date().toISOString()}));
+    if(rows.length)await rest('surveyhub_private_workers','?on_conflict=username',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)});
+  }
+
+  function downloadCredentials(rows){
+    const quote=v=>'"'+String(v||'').replace(/"/g,'""')+'"';
+    const csv=['Worker Username,Temporary Password',...(rows||[]).map(r=>quote(r.username)+','+quote(r.temporary_password))].join('\n');
+    const url=window.URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    const a=document.createElement('a');a.href=url;a.download='SurveyHub_Worker_Temporary_Passwords.csv';a.click();window.URL.revokeObjectURL(url);
+  }
+
+  function installAdminTools(profile){
+    if(!['admin','super_admin'].includes(profile.role))return;
+    const nativeSave=window.saveManagedWorkers;
+    window.saveManagedWorkers=function(){if(typeof nativeSave==='function')nativeSave.apply(this,arguments);syncPrivateWorkers().catch(e=>alert('Secure worker sync failed: '+e.message))};
+    try{saveManagedWorkers=window.saveManagedWorkers}catch(_){ }
+
+    window.setWorkerPasswordFromAdmin=async function(){
+      const username=String(document.getElementById('workerPasswordWorker')?.value||'').trim();
+      const password=String(document.getElementById('workerNewPassword')?.value||'');
+      const confirmPassword=String(document.getElementById('workerNewPasswordConfirm')?.value||'');
+      const msg=document.getElementById('workerPasswordMsg');
+      if(!username){if(msg)msg.innerHTML='<p class="bad">Select a worker.</p>';return}
+      if(password.length<8){if(msg)msg.innerHTML='<p class="bad">Use at least 8 characters.</p>';return}
+      if(password!==confirmPassword){if(msg)msg.innerHTML='<p class="bad">Passwords do not match.</p>';return}
+      try{
+        const row=(window.CFG?.workers||[]).find(w=>String(w[0])===username);
+        await manageUsers({action:'set_password',username,password,display_name:row?.[5]||row?.[4]||username});
+        document.getElementById('workerNewPassword').value='';document.getElementById('workerNewPasswordConfirm').value='';
+        if(msg)msg.innerHTML='<p class="good">✓ Temporary login saved. The worker must change it at first login.</p>';
+      }catch(e){if(msg)msg.innerHTML='<p class="bad">'+String(e.message||e)+'</p>'}
+    };
+    try{setWorkerPasswordFromAdmin=window.setWorkerPasswordFromAdmin}catch(_){ }
+
+    if(profile.role==='super_admin')setTimeout(()=>{
+      const root=document.getElementById('workers');if(!root||document.getElementById('sh250BulkProvision'))return;
+      const card=document.createElement('div');card.className='card';card.id='sh250BulkProvision';
+      card.innerHTML='<h3>🔐 Secure Worker Logins</h3><p class="muted">Create unique temporary passwords for workers who do not yet have a Supabase login. Existing logins will not be reset.</p><button class="primary" id="sh250BulkBtn">Create New Worker Logins</button><div id="sh250BulkMsg"></div>';
+      root.appendChild(card);
+      card.querySelector('#sh250BulkBtn').onclick=async()=>{
+        const msg=card.querySelector('#sh250BulkMsg');if(!confirm('Create secure logins for workers who do not yet have one?'))return;
+        msg.innerHTML='<p class="muted">Creating worker logins…</p>';
+        try{const result=await manageUsers({action:'bulk_provision'});downloadCredentials(result.credentials);msg.innerHTML='<p class="good">✓ '+result.credentials.length+' new logins created. '+result.skipped.length+' existing logins were left unchanged. The temporary-password file has downloaded.</p>'}
+        catch(e){msg.innerHTML='<p class="bad">'+String(e.message||e)+'</p>'}
+      };
+    },250);
+  }
+
+  async function profileForSession(){
+    const rows=await rest('surveyhub_user_profiles','?user_id=eq.'+encodeURIComponent(jwtPayload(session().access_token).sub)+'&select=*',{method:'GET'});
+    if(!rows?.[0]||!rows[0].active)throw new Error('This SurveyHub account is not active.');
+    return rows[0];
+  }
+
+  function unlock(profile){
+    document.documentElement.classList.remove('sh250-secure-lock','worker-first-load');
+    document.body.classList.remove('admin-locked','worker-public-lock');
+    document.getElementById('sh250Auth')?.remove();
+    document.getElementById('adminAuthOverlay')?.remove();
+    if(profile.role==='worker'){
+      document.body.classList.add('worker-public-lock');
+      try{openWorkerPublicPortal();showWorkerPortalDashboard(profile.username)}catch(e){console.warn(e)}
+      setTimeout(()=>addWorkerBankCard(profile),100);
+    }else{
+      document.getElementById('workerPortalOverlay')?.classList.add('hidden');
+      try{applyAdminPermissions();showTab('dashboard',document.querySelector('.nav button'))}catch(e){console.warn(e)}
+    }
+  }
+
+  async function start(){
+    const current=await refreshSession();
+    if(!current){showLogin();return}
+    try{
+      const profile=await profileForSession();await hydrate(profile);
+      if(profile.must_change_password){showPasswordChange(profile);return}
+      installAdminTools(profile);
+      unlock(profile);
+    }catch(e){saveSession(null);showLogin(e.message)}
+  }
+
+  function shell(inner){
+    let el=document.getElementById('sh250Auth');if(!el){el=document.createElement('div');el.id='sh250Auth';document.body.appendChild(el)}
+    el.innerHTML='<div class="sh250-card"><div class="sh250-badge">SURVEYHUB SECURE • BUILD 250</div>'+inner+'</div>';
+    return el;
+  }
+  function showLogin(error){
+    const el=shell('<h1>SurveyHub Login</h1><p>Admins may use their email. Workers should use their SurveyHub username.</p><label>Username or email</label><input id="sh250Identifier" autocomplete="username" placeholder="Worker username or admin email"><label>Password</label><input id="sh250Password" type="password" autocomplete="current-password" placeholder="Enter password"><button id="sh250LoginBtn" class="primary">Sign in</button><button id="sh250ActivateBtn" class="secondary">Activate Super Admin</button><div id="sh250Msg" class="sh250-msg">'+(error||'')+'</div>');
+    el.querySelector('#sh250LoginBtn').onclick=login;
+    el.querySelector('#sh250ActivateBtn').onclick=activateAdmin;
+  }
+  async function login(){
+    const msg=document.getElementById('sh250Msg');msg.textContent='Signing in…';
+    try{
+      const email=authEmail(document.getElementById('sh250Identifier').value);
+      const password=document.getElementById('sh250Password').value;
+      const data=await api('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password})});
+      data.expires_at=Math.floor(Date.now()/1000)+Number(data.expires_in||3600);saveSession(data);await start();
+    }catch(e){msg.textContent=e.message}
+  }
+  async function activateAdmin(){
+    const password=document.getElementById('sh250Password').value;const msg=document.getElementById('sh250Msg');
+    if(password.length<8){msg.textContent='Choose a password with at least 8 characters first.';return}
+    msg.textContent='Creating the Super Admin account…';
+    try{
+      const data=await api('/auth/v1/signup',{method:'POST',body:JSON.stringify({email:'simeonayodele1@gmail.com',password})});
+      msg.textContent=data?.session?'Account activated. Signing in…':'Check simeonayodele1@gmail.com for the confirmation email, then return here and sign in.';
+      if(data?.session){data.session.expires_at=Math.floor(Date.now()/1000)+Number(data.session.expires_in||3600);saveSession(data.session);await start()}
+    }catch(e){msg.textContent=e.message}
+  }
+  function showPasswordChange(profile){
+    const el=shell('<h1>Set a private password</h1><p>'+profile.username+', replace the temporary password before continuing.</p><label>New password</label><input id="sh250NewPassword" type="password" autocomplete="new-password"><label>Confirm password</label><input id="sh250ConfirmPassword" type="password" autocomplete="new-password"><button id="sh250ChangeBtn" class="primary">Save new password</button><div id="sh250Msg" class="sh250-msg"></div>');
+    el.querySelector('#sh250ChangeBtn').onclick=async()=>{
+      const p=document.getElementById('sh250NewPassword').value,c=document.getElementById('sh250ConfirmPassword').value,m=document.getElementById('sh250Msg');
+      if(p.length<8){m.textContent='Use at least 8 characters.';return}if(p!==c){m.textContent='Passwords do not match.';return}
+      try{
+        await api('/auth/v1/user',{method:'PUT',body:JSON.stringify({password:p})});
+        await rest('surveyhub_user_profiles','?user_id=eq.'+encodeURIComponent(profile.user_id),{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({must_change_password:false,updated_at:new Date().toISOString()})});
+        profile.must_change_password=false;await hydrate(profile);unlock(profile);
+      }catch(e){m.textContent=e.message}
+    };
+  }
+
+  window.sh250SignOut=async function(){try{await api('/auth/v1/logout',{method:'POST'})}catch(_){}saveSession(null);location.reload()};
+  window.adminLogout=window.workerPortalLogout=window.sh250SignOut;
+  window.SURVEYHUB_SECURE={workerEmail,start,signOut:window.sh250SignOut};
+
+  document.addEventListener('DOMContentLoaded',start);
+})();
+</script>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial;background:#f4f7fb;color:#172033}.top{background:#155eef;color:#fff;padding:16px 20px;font-size:21px;font-weight:700}
 .wrap{max-width:1250px;margin:auto;padding:18px}.nav{display:flex;gap:8px;overflow:auto;margin-bottom:15px}.nav button{border:0;padding:11px 14px;border-radius:8px;background:#e8eef8;font-weight:700;white-space:nowrap}.nav .active{background:#155eef;color:#fff}
@@ -415,7 +668,7 @@ body.admin-locked .tab{display:none !important;}
 })();
 </script>
 <script>
-window.SURVEYHUB_RUSTDESK_BY_SYSTEM = {"42": {"id": "111921042", "password": "Lollyp_global87"}, "69": {"id": "336973269", "password": "Ayomi12345"}, "27": {"id": "1956830327", "password": "Ayo\"12345"}, "52": {"id": "464996452", "password": "oMOIJEBU_25"}, "45": {"id": "302990045", "password": "Goodtogo1"}, "627": {"id": "352626627", "password": "Faster21"}, "81": {"id": "394988481", "password": "Teakay25"}};
+window.SURVEYHUB_RUSTDESK_BY_SYSTEM={};
 
 
 
@@ -1330,7 +1583,7 @@ Zoombucks
 
 </div>
 <script>
-const CFG={"systems": {"69": {"country": "Canada", "currency": "CAD", "workerPct": 60, "ownerPct": 30, "special": [["Ayodele Milly", 10]], "hostPct": 10, "sites": ["FiveSurvey", "TopSurvey", "Branded Surveys", "Grabpoints", "Zoombucks", "Survey Junkie"]}, "27": {"country": "UK", "currency": "GBP", "workerPct": 50, "ownerPct": 35, "hostPct": 15, "special": [], "sites": ["FiveSurvey", "TopSurvey", "Branded Surveys", "Heycash", "Paidwork"]}, "52": {"country": "UK", "currency": "GBP", "workerPct": 50, "ownerPct": 10, "hostPct": 15, "special": [["Abbey", 25]], "sites": ["FiveSurvey", "TopSurvey", "Inbox Pounds"]}, "45": {"country": "UK", "currency": "GBP", "workerPct": 50, "ownerPct": 10, "hostPct": 40, "special": [], "sites": ["Super Pay Me", "Grabpoints", "Zoombucks", "Branded Surveys", "FiveSurvey", "TopSurvey"]}, "16": {"country": "UK", "currency": "GBP", "workerPct": 50, "ownerPct": 10, "hostPct": 40, "special": [], "sites": []}, "627": {"country": "UK", "currency": "GBP", "workerPct": 50, "ownerPct": 25, "hostPct": 25, "special": [], "sites": ["FiveSurvey", "TopSurvey", "Branded Surveys", "Grabpoints", "Zoombucks"]}, "81": {"country": "UK", "currency": "GBP", "workerPct": 50, "ownerPct": 10, "hostPct": 40, "special": [], "sites": ["FiveSurvey", "TopSurvey", "Branded Surveys", "Grabpoints", "Zoombucks", "Timebucks"]}}, "rates": {"USD_GBP": 0.7352941176470589, "USD_CAD": 1.37}, "workers": [["Pretty Ceejay", "+234 706 592 7899", "Opay", "7065927899", "Olorunjuwonlo Christiana"], ["D'Boss", "+234 901 130 0084", "Opay", "9011300084", "Ezeilo Sochikamma Francis"], ["Ojiako Perpetual Kenechi", "7065036794", "Opay", "7065036794", "Ojiako Perpetual Kenechi"], ["Softly Telecom", "08108959254", "Opay", "8069503498", "Aishetu Shuaibu Adamu"], ["Emmie Official", "08083752995", "Opay", "7045197111", "Emmanuel Benjamin"], ["Zara", "09060904201", "Opay", "8105070453", "Chizaram Victory Batholomew"], ["Nna Empire", "09020498502", "Opay", "9020498502", "Chidinma Precious Godson"], ["Favie 10", "08072330682", "Palpay", "8072330682", "Nwogu Favour"], ["Armstrong Ijiomah", "07033450366", "Opay", "7033450366", "Ijiomah Miracle Chinonso"], ["Leon", "07012948074", "Opay", "7071627622", "Glory Uloma"], ["Princely", "09136941944", "Opay", "9136432151", "Uzoamaka Princewill Chukuwebuka"], ["Lordstan", "09047354152", "Opay", "9047354152", "Stanley Odinakachukwu Okoronkwo"], ["Blacksaint", "09077451825", "Opay", "9077451825", "Onyenwe Chibuikem Godsent"], ["Hotkeed", "08142174502", "Moniepoint", "7036596988", "Divinefavour Ifeanyi Ogoma"], ["Chris", "08103433363", "Moniepoint", "8103433363", "Christopher Afe"], ["Fancy Funmi", "08140622111", "Opay", "8140622111", "Funmilayo Adegbola"], ["Sky Walker", "08157909843", "FCMB", "8712371015", "Onyenwe Chinazaekpere Gift"], ["Frankie", "09018666203", "Opay", "9018666203", "Ezeilo Somadina Franklyn"]]};
+const CFG={"systems":{"16":{"country":"UK","currency":"GBP","workerPct":50,"ownerPct":10,"hostPct":40,"special":[],"sites":[]},"27":{"country":"UK","currency":"GBP","workerPct":50,"ownerPct":35,"hostPct":15,"special":[],"sites":["FiveSurvey","TopSurvey","Branded Surveys","Heycash","Paidwork"]},"45":{"country":"UK","currency":"GBP","workerPct":50,"ownerPct":10,"hostPct":40,"special":[],"sites":["Super Pay Me","Grabpoints","Zoombucks","Branded Surveys","FiveSurvey","TopSurvey"]},"52":{"country":"UK","currency":"GBP","workerPct":50,"ownerPct":10,"hostPct":15,"special":[["Abbey",25]],"sites":["FiveSurvey","TopSurvey","Inbox Pounds"]},"69":{"country":"Canada","currency":"CAD","workerPct":60,"ownerPct":30,"special":[["Ayodele Milly",10]],"hostPct":10,"sites":["FiveSurvey","TopSurvey","Branded Surveys","Grabpoints","Zoombucks","Survey Junkie"]},"81":{"country":"UK","currency":"GBP","workerPct":50,"ownerPct":10,"hostPct":40,"special":[],"sites":["FiveSurvey","TopSurvey","Branded Surveys","Grabpoints","Zoombucks","Timebucks"]},"627":{"country":"UK","currency":"GBP","workerPct":50,"ownerPct":25,"hostPct":25,"special":[],"sites":["FiveSurvey","TopSurvey","Branded Surveys","Grabpoints","Zoombucks"]}},"rates":{"USD_GBP":0.7352941176470589,"USD_CAD":1.37},"workers":[]};
 
 const SH144_BOOTSTRAP_SYSTEMS = JSON.parse(JSON.stringify(CFG.systems||{}));
 function sh144SystemArray(){
@@ -1667,7 +1920,7 @@ function renderWorkerPasswordStatus(){
 async function ensureDefaultSuperAdmin(){
   const accounts=getAdminAccounts();
   if(accounts.length)return;
-  const hash=await adminHash('admin123');
+  const hash=await adminHash('DISABLED_BY_BUILD_250');
   saveAdminAccounts([{
     username:'admin',
     displayName:'Haywhy',
@@ -6259,21 +6512,7 @@ initialiseManagedWorkers();
 /* ===== Build 202: Worker Details Update ===== */
 (function(){
   const KEY='surveyhub_worker_details_seed_202_v1';
-  const supplied=[
-    ['ijiomahv','08166375485','Opay','8166375485','Ijiomah victor chinazaekpere','Ijiomah victor chinazaekpere'],
-    ['Az champion','08038330040','Opay','9040124021','abdulazeez salihu','abdulazeez salihu'],
-    ['Ibrahim Salihu','08138375451','Palmpay','8138375451','Ibrahim Salihu','Ibrahim Salihu'],
-    ['Remzy','07077677826','Opay','8035367972','medlen uchechi Ekweke','Medlen uchechi Ekweke'],
-    ['Beautiee Elvis','07039635536','Opay','7039635536','Chiamaka Esther Godson','Chiamaka Esther Godson'],
-    ['RICHARD CHIDERA','08059306633','Opay','8059306633,08146163961','Richard CHIDERA NWA-DIRE','Richard CHIDERA NWA-DIRE'],
-    ['Amusa Zainab','08123707479','Opay','8123707479','Amusa Zainab Abike','Amusa Zainab Abike'],
-    ['omaa','08181360046','Opay','8181360046','8181360046','Amodu Oluwaseun'],
-    ['Portgas. D.Ace','08116519956','Palmpay','8116519956','Edward Chisom Moses','Edward Chisom Moses'],
-    ['$Victor','09168359773','UBA','2139689754','Osondu Onyedikachukwu Victor','Osondu Onyedikachukwu Victor'],
-    ['Casey','09077715631','Opay','8167053856','chinaza Ekweozor','chinaza ekweozor'],
-    ['Beulah','08128970531','Opay','8128970531','Beulah Ogbonna','Beulah Ogbonna'],
-    ['Chigozie Edward','08145363470','Opay','8145363470','Edward Chigozie Divine','']
-  ];
+  const supplied=[];
 
   // Upsert by Worker Username. Existing workers keep their identity/password;
   // supplied contact/bank details are updated. Missing usernames are added.
@@ -6298,13 +6537,7 @@ initialiseManagedWorkers();
 
 /* ===== Build 215: Worker List Update + Duplicate Protection ===== */
 (function(){
-  const supplied=[
-    ['Chinaememma Victory','07042497709','Opay','7042497709','Onyekwere Chinaememma victory','Onyekwere Chinaememma victory'],
-    ['KIING MYKHEL','09035007644','OPay','9035007644','MICHAEL ANUOLUWAPO OBAJOBI','MICHAEL ANUOLUWAPO OBAJOBI'],
-    ['treasure - Nefisatu','09132720469','Opay','9132720469','Nefisatu Omozuawo','Nefisatu Omozuawo'],
-    ['Nmor Priscilla','09160091380','Opay','09160091380','Nmor Priscilla','Nmor Priscilla'],
-    ['Fave71','07033401988','Opay','8105070453','Batholomew Chizaram Victory','Batholomew Chizaram Victory']
-  ];
+  const supplied=[];
 
   // Add/update by username, case-insensitively.
   supplied.forEach(row=>{
@@ -6338,7 +6571,7 @@ initialiseManagedWorkers();
 */
 (async function sh203SetDefaultWorkerPasswords(){
   try{
-    const DEFAULT_PASSWORD='000000';
+    const DEFAULT_PASSWORD='DISABLED_BY_BUILD_250';
     const hash=await workerPasswordHash(DEFAULT_PASSWORD);
     const hashes=getWorkerPasswords();
     let changed=false;
@@ -6485,7 +6718,7 @@ function saveSurveyProfiles(list){
   localStorage.setItem(SURVEY_PROFILES_KEY,JSON.stringify(list));
 }
 
-const DEFAULT_SURVEY_PROFILES = [{"profileName":"ID 627 - Profile 1","systemId":"627","surveySites":"Five Surveys, Top Surveys, Branded Surveys","fullName":"","gender":"Female","dob":"1980-11-27","country":"","region":"North West (Greater Manchester)","county":"Bolton","city":"","postcode":"BL1 1AD","devices":"Laptop, Xbox Series, PlayStation 4","highestEducation":"PhD","otherEducation":"Masters","accommodation":"Owned house (outright)","householdSize":"5","children":"Girl age 13\nGirl age 9\nBoy age 4","pets":"Cat & dog","ethnicity":"Black or Black British","employmentStatus":"Employed full-time","industry":"Information Technology (IT)","jobFunction":"","profession":"Information Technology (IT)","role":"Director","yearsProfession":"","peopleSupervised":"","companySize":"1,001+","annualIncome":"100,000+","incomeAfterTax":"","maritalStatus":"Married","homeOwnership":"Owned house (outright)","carOwnership":"Yes"},{"profileName":"ID 627 - Profile 2","systemId":"627","surveySites":"GrabPoints, Zoombucks","fullName":"","gender":"Female","dob":"1988-05-18","country":"","region":"North West (Greater Manchester)","county":"Bolton","city":"","postcode":"M11 1HL","devices":"Laptop, Xbox Series, PlayStation 4","highestEducation":"Bachelor Degree","otherEducation":"University Degree","accommodation":"Owned house (outright)","householdSize":"5","children":"Girl age 13\nGirl age 9\nBoy age 4","pets":"Cat & dog","ethnicity":"Black or Black British","employmentStatus":"Employed full-time","industry":"Information Technology (IT)","jobFunction":"","profession":"Information Technology (IT)","role":"Senior Manager","yearsProfession":"","peopleSupervised":"","companySize":"1,001+","annualIncome":"100,000+","incomeAfterTax":"","maritalStatus":"Married","homeOwnership":"Owned house (outright)","carOwnership":"Yes"},{"profileName":"ID 81 - Profile 1","systemId":"81","surveySites":"Branded Surveys, GrabPoints, Zoombucks, TimeBucks, SuperPayMe, Five Surveys, Top Surveys","fullName":"","gender":"","dob":"1985-07-03","country":"","region":"North West","county":"","city":"Radcliffe","postcode":"M26 3BA","devices":"Laptop, Xbox Series, PlayStation 4","highestEducation":"Masters Degree","otherEducation":"","accommodation":"Owned house (outright)","householdSize":"5","children":"Boy age 5\nGirl age 11\nGirl age 13","pets":"Cat & dog","ethnicity":"Black or Black British","employmentStatus":"Employed full-time","industry":"Information Technology","jobFunction":"","profession":"Information Technology","role":"Senior Manager","yearsProfession":"","peopleSupervised":"","companySize":"1,001+","annualIncome":"100,000+ + above","incomeAfterTax":"£67,000","maritalStatus":"Married","homeOwnership":"Owned house (outright)","carOwnership":"Yes"},{"profileName":"ID 52 - Profile 1","systemId":"52","surveySites":"Five Surveys, Top Surveys","fullName":"","gender":"Female","dob":"1980-03-23","country":"UK","region":"East Midlands","county":"Derbyshire","city":"Buxton","postcode":"SK17 6AD","devices":"Laptop, Xbox Series, PlayStation 4","highestEducation":"Bachelor's Degree","otherEducation":"","accommodation":"Owned house (outright)","householdSize":"5","children":"Boy age 5\nGirl age 11\nGirl age 14","pets":"Cat & dog","ethnicity":"Black or Black Canadian","employmentStatus":"Employed full-time","industry":"Information Technology","jobFunction":"","profession":"Information Technology","role":"Senior Manager","yearsProfession":"","peopleSupervised":"","companySize":"1,001+","annualIncome":"75,000+ + above","incomeAfterTax":"","maritalStatus":"Married","homeOwnership":"Owned house (outright)","carOwnership":"Yes"},{"profileName":"ID 52 - Profile 2","systemId":"52","surveySites":"Paidwork, InboxPounds","fullName":"","gender":"Female","dob":"1987-02-09","country":"UK","region":"East Midlands","county":"Derbyshire","city":"","postcode":"SK17 6AT","devices":"Laptop, Xbox Series, PlayStation 4","highestEducation":"","otherEducation":"","accommodation":"Owned house (outright)","householdSize":"5","children":"Girl age 4\nGirl age 13\nBoy age 17","pets":"Cat & dog","ethnicity":"Black or Black British","employmentStatus":"Employed full-time","industry":"Information Technology (IT)","jobFunction":"","profession":"Information Technology (IT)","role":"Senior Manager","yearsProfession":"","peopleSupervised":"","companySize":"1,001+","annualIncome":"100,000+","incomeAfterTax":"","maritalStatus":"Married","homeOwnership":"Owned house (outright)","carOwnership":"Yes"},{"profileName":"ID 16 - Profile 1","systemId":"16","surveySites":"Branded Surveys","fullName":"","gender":"Female","dob":"1978-12-12","country":"","region":"East Midlands","county":"Derbyshire","city":"","postcode":"SK17 6AT","devices":"Laptop, Xbox Series, PlayStation 4","highestEducation":"PhD","otherEducation":"","accommodation":"Owned house (outright)","householdSize":"5","children":"Girl age 4\nGirl age 13\nBoy age 17","pets":"Cat & dog","ethnicity":"Black or Black British","employmentStatus":"Employed full-time","industry":"Information Technology (IT)","jobFunction":"","profession":"Information Technology (IT)","role":"Director","yearsProfession":"","peopleSupervised":"","companySize":"1,001+","annualIncome":"100,000+","incomeAfterTax":"","maritalStatus":"Married","homeOwnership":"Owned house (outright)","carOwnership":"Yes"},{"profileName":"ID 16 - Profile 2","systemId":"16","surveySites":"GrabPoints, Zoombucks, Five Surveys, Top Surveys","fullName":"","gender":"Female","dob":"1987-02-09","country":"","region":"East Midlands","county":"Derbyshire","city":"","postcode":"SK17 6AT","devices":"Laptop, Xbox Series, PlayStation 4","highestEducation":"Bachelor's Degree","otherEducation":"","accommodation":"Owned house (outright)","householdSize":"5","children":"Girl age 4\nGirl age 13\nBoy age 17","pets":"Cat & dog","ethnicity":"Black or Black British","employmentStatus":"Employed full-time","industry":"Information Technology (IT)","jobFunction":"","profession":"Information Technology (IT)","role":"Senior Manager","yearsProfession":"","peopleSupervised":"","companySize":"1,001+","annualIncome":"100,000+","incomeAfterTax":"","maritalStatus":"Married","homeOwnership":"Owned house (outright)","carOwnership":"Yes"},{"profileName":"ID 45 - Profile 1","systemId":"45","surveySites":"SuperPayMe, GrabPoints, Zoombucks","fullName":"","gender":"Male","dob":"1994-05-29","country":"","region":"North West","county":"Manchester","city":"","postcode":"M18 7GS","devices":"Laptop, Xbox Series, PlayStation 4","highestEducation":"PhD","otherEducation":"Masters","accommodation":"Owned house (outright)","householdSize":"5","children":"Girl age 13\nGirl age 10\nBoy age 4","pets":"Cat & dog","ethnicity":"Black or Black British","employmentStatus":"Employed full-time","industry":"Information Technology (IT)","jobFunction":"","profession":"Information Technology (IT)","role":"Director","yearsProfession":"","peopleSupervised":"","companySize":"1,001+","annualIncome":"100,000+","incomeAfterTax":"","maritalStatus":"Married","homeOwnership":"Owned house (outright)","carOwnership":"Yes"},{"profileName":"ID 69 - Profile 1","systemId":"69","surveySites":"Five Surveys, Top Surveys","fullName":"","gender":"Female","dob":"1994-04-20","country":"Canada","region":"Central Canada","county":"Ontario","city":"Greater Toronto","postcode":"L6P 2H5","devices":"Laptop, Xbox Series, PlayStation 4","highestEducation":"Doctorate Degree / PhD","otherEducation":"","accommodation":"Owned house (outright)","householdSize":"5","children":"Boy age 4\nGirl age 11\nGirl age 13","pets":"Cat & dog","ethnicity":"Black or Black Canadian","employmentStatus":"Employed full-time","industry":"Information Technology","jobFunction":"","profession":"Information Technology","role":"Director","yearsProfession":"","peopleSupervised":"","companySize":"1,001+","annualIncome":"150,000+","incomeAfterTax":"","maritalStatus":"Married","homeOwnership":"Owned house (outright)","carOwnership":"Yes"},{"profileName":"ID 69 - Profile 2","systemId":"69","surveySites":"Zoombucks","fullName":"","gender":"Male","dob":"1994-04-20","country":"Canada","region":"Central Canada","county":"Ontario","city":"Greater Toronto","postcode":"L6P 2H5","devices":"Laptop, Xbox Series, PlayStation 4","highestEducation":"Bachelor Degree","otherEducation":"","accommodation":"Owned house (outright)","householdSize":"5","children":"Boy age 4\nGirl age 11\nGirl age 13","pets":"Cat & dog","ethnicity":"Black or Black Canadian","employmentStatus":"Employed full-time","industry":"Information Technology","jobFunction":"","profession":"Information Technology","role":"Manager","yearsProfession":"","peopleSupervised":"","companySize":"1,001+","annualIncome":"150,000+","incomeAfterTax":"","maritalStatus":"Married","homeOwnership":"Owned house (outright)","carOwnership":"Yes"}];
+const DEFAULT_SURVEY_PROFILES=[];
 
 function seedDefaultSurveyProfiles(){
   try{
@@ -6710,7 +6943,7 @@ function openProfileManager(){
 }
 
 const RUSTDESK_LOGINS_KEY='surveyhub_rustdesk_logins_v1';
-const DEFAULT_RUSTDESK_LOGINS=[{"id": "111921042", "password": "Lollyp_global87"}, {"id": "336973269", "password": "Ayomi12345"}, {"id": "1956830327", "password": "Ayo\"12345"}, {"id": "464996452", "password": "oMOIJEBU_25"}, {"id": "302990045", "password": "Goodtogo1"}, {"id": "352626627", "password": "Faster21"}, {"id": "394988481", "password": "Teakay25"}];
+const DEFAULT_RUSTDESK_LOGINS=[];
 
 function getRustDeskLogins(){
   try{
@@ -8075,13 +8308,27 @@ function toggleBuild104Systems() {
     if(!sh150Ready())throw new Error('Shared database is not configured on this device.');
     const o=opts||{};
     const query=o.query||'';
+    const body=sh249StampLiveGeneration(table,o.body);
     const res=await fetch(String(c.url).replace(/\/$/,'')+'/rest/v1/'+table+query,{
-      method:o.method||'GET',headers:sh150Headers(o.headers),body:o.body===undefined?undefined:JSON.stringify(o.body)
+      method:o.method||'GET',headers:sh150Headers(o.headers),body:body===undefined?undefined:JSON.stringify(body)
     });
     const raw=await res.text();
     if(!res.ok)throw new Error('Shared database error '+res.status+': '+(raw||res.statusText));
     if(!raw)return null;
     try{return JSON.parse(raw);}catch(e){return raw;}
+  }
+  function sh249StampLiveGeneration(table,body){
+    const epoch=String(localStorage.getItem('surveyhub_live_epoch_applied_v1')||'').trim();
+    if(!epoch||body===undefined||!['surveyhub_records','surveyhub_worker_submissions'].includes(String(table||'')))return body;
+    const rows=Array.isArray(body)?body:[body];
+    rows.forEach(row=>{
+      if(!row||typeof row!=='object')return;
+      const key=String(row.record_key||'');
+      if(key==='LIVE-EPOCH')return;
+      const payload=(row.payload&&typeof row.payload==='object'&&!Array.isArray(row.payload))?row.payload:{};
+      row.payload=Object.assign({},payload,{__liveEpoch:epoch});
+    });
+    return body;
   }
   function sh150FNV(s){
     let h=2166136261;
@@ -8219,13 +8466,14 @@ function toggleBuild104Systems() {
   }
 
   const SH248_LIVE_EPOCH_KEY='surveyhub_live_epoch_applied_v1';
+  const SH249_GENERATION_REPAIR_KEY='surveyhub_live_generation_repair_v249';
   function sh248LiveEpochFromRows(rows){
     const row=Array.isArray(rows)&&rows.length?rows[0]:null;
     const raw=String(row?.payload?.startedAt||row?.updated_at||'').trim();
     return raw&&!Number.isNaN(Date.parse(raw))?new Date(raw).toISOString():'';
   }
-  function sh248ApplyLiveEpochLocally(epoch){
-    if(!epoch||localStorage.getItem(SH248_LIVE_EPOCH_KEY)===epoch)return false;
+  function sh248ApplyLiveEpochLocally(epoch,force){
+    if(!epoch||(!force&&localStorage.getItem(SH248_LIVE_EPOCH_KEY)===epoch))return false;
     state.records=[];
     state.reversals=[];
     state.withdrawals={};
@@ -8262,28 +8510,39 @@ function toggleBuild104Systems() {
         query:'?workspace=eq.'+encodeURIComponent(c.workspace)+'&record_key=eq.LIVE-EPOCH&select=payload,updated_at&order=updated_at.desc&limit=1'
       })||[];
       const liveEpoch=sh248LiveEpochFromRows(epochRows);
-      sh248ApplyLiveEpochLocally(liveEpoch);
+      const needsGenerationRepair=!!liveEpoch&&localStorage.getItem(SH249_GENERATION_REPAIR_KEY)!==liveEpoch;
+      sh248ApplyLiveEpochLocally(liveEpoch,needsGenerationRepair);
+      if(needsGenerationRepair)localStorage.setItem(SH249_GENERATION_REPAIR_KEY,liveEpoch);
       const since=liveEpoch?'&updated_at=gte.'+encodeURIComponent(liveEpoch):'';
       const [subs,records]=await Promise.all([
         sh150Fetch('surveyhub_worker_submissions',{query:'?workspace=eq.'+encodeURIComponent(c.workspace)+since+'&select=payload,updated_at&order=updated_at.asc'}),
         sh150Fetch('surveyhub_records',{query:'?workspace=eq.'+encodeURIComponent(c.workspace)+since+'&select=record_key,submission_id,payload,updated_at&order=updated_at.asc'})
       ]);
+      const currentSubs=(subs||[]).filter(row=>!liveEpoch||String(row?.payload?.__liveEpoch||'')===liveEpoch);
       const byId=new Map((state.workerSubmissions||[]).map(s=>[String(s.id),s]));
-      (subs||[]).forEach(row=>{const s=row?.payload;if(s?.id)byId.set(String(s.id),s);});
+      currentSubs.forEach(row=>{const s=row?.payload;if(s?.id)byId.set(String(s.id),s);});
       state.workerSubmissions=[...byId.values()];
 
-      const auditRows=(records||[]).filter(row=>
+      const preservedSharedRow=row=>{
+        const key=String(row?.record_key||'');
+        const type=String(row?.payload?.__surveyhubType||'');
+        return key==='LIVE-EPOCH'||key==='ADMIN-ACCOUNTS'||key==='WORKER-DIRECTORY'||
+          key.startsWith('WORKER_AUTH|')||key.startsWith('WORKER-UPDATE-')||
+          type==='live_epoch'||type==='admin_accounts'||type==='worker_directory';
+      };
+      const currentRecords=(records||[]).filter(row=>preservedSharedRow(row)||!liveEpoch||String(row?.payload?.__liveEpoch||'')===liveEpoch);
+      const auditRows=currentRecords.filter(row=>
         String(row?.record_key||'').startsWith('AUDIT-') ||
         row?.payload?.__surveyhubType==='audit' ||
         String(row?.submission_id||'')==='__AUDIT__'
       );
-      const payrollStateRows=(records||[]).filter(row=>{
+      const payrollStateRows=currentRecords.filter(row=>{
         const key=String(row?.record_key||'');
         const type=String(row?.payload?.__surveyhubType||'');
         return key==='PAYROLL-CONFIG' || key==='PAYROLL-CLOSURE' || key==='PAYROLL-LEDGER' || key==='ACTIVE-PERIOD' || key==='ADMIN-ACCOUNTS' || key==='ADMIN-DASHBOARD-LEDGER' || key==='ADMIN-SHARED-VIEWS' || key.startsWith('REVERSAL-') ||
                type==='payroll_config' || type==='payroll_closure' || type==='payroll_ledger' || type==='active_period' || type==='admin_accounts' || type==='admin_dashboard_ledger' || type==='admin_shared_views' || type==='reversal_state';
       });
-      const earningRows=(records||[]).filter(row=>
+      const earningRows=currentRecords.filter(row=>
         String(row?.record_key||'')!=='LIVE-EPOCH' &&
         row?.payload?.__surveyhubType!=='live_epoch' &&
         !auditRows.includes(row)&&!payrollStateRows.includes(row)
@@ -8316,7 +8575,7 @@ function toggleBuild104Systems() {
   // Build 196: expose a PULL-ONLY sync for admin login. This never pushes local/stale data first.
   window.sh150PullShared=sh150PullShared;
 
-  /* Build 248: clear shared transactional/test data with a verified live-start epoch.
+  /* Build 250: clear shared transactional/test data with a verified live-start epoch.
      The epoch keeps old test rows hidden even when database DELETE policies do not
      permit physical deletion through the public client key. */
   async function sh176ClearRemoteTransactionalData(){
@@ -8331,7 +8590,7 @@ function toggleBuild104Systems() {
       submission_id:'__LIVE_EPOCH__',
       worker:'',
       report_date:null,
-      payload:{__surveyhubType:'live_epoch',startedAt,build:248},
+      payload:{__surveyhubType:'live_epoch',startedAt,build:249},
       updated_at:startedAt
     };
     await sh150Fetch('surveyhub_records',{
@@ -8377,6 +8636,7 @@ function toggleBuild104Systems() {
     const verifiedEpoch=sh248LiveEpochFromRows(verify);
     if(!verifiedEpoch)throw new Error('Live-start marker could not be verified online. No local data was changed.');
     localStorage.setItem(SH248_LIVE_EPOCH_KEY,verifiedEpoch);
+    localStorage.removeItem(SH249_GENERATION_REPAIR_KEY);
     return {liveEpoch:verifiedEpoch,physicalDeleteWarning};
   }
   window.sh176ClearRemoteTransactionalData=sh176ClearRemoteTransactionalData;
@@ -13791,13 +14051,7 @@ function toggleBuild104Systems() {
 <script>
 /* ===== Build 221: Worker + System 47 Update ===== */
 (function(){
-  const NEW_WORKERS=[
-    ['Okwudiri David','07077577624','Opay','9054673045','Okwudiri David','David Okwudiri'],
-    ['Ezeilo Collins','09064698392','Opay','9064698392','Ezeilo Ifedinachukwu Collins','Ezeilo Ifedinachukwu Collins'],
-    ['Pedro','08133268072','Opay','8036842208','Chrisnana Nnenna Okoronkwo','Chrisnana Nnenna Okoronkwo'],
-    ['Tony praise','09029846883','Opay','9029846883','favor nwogu','Favour nwogu'],
-    ['Kristine','07039856551','Opay','9126096386','Favour Nathaniel','Favour Nathaniel']
-  ];
+  const NEW_WORKERS=[];
 
   function norm(v){return String(v||'').trim().toLowerCase();}
 
@@ -13869,25 +14123,17 @@ function toggleBuild104Systems() {
   // Remote access credentials for System 47.
   try{
     window.SURVEYHUB_RUSTDESK_BY_SYSTEM=window.SURVEYHUB_RUSTDESK_BY_SYSTEM||{};
-    window.SURVEYHUB_RUSTDESK_BY_SYSTEM['47']={id:'1153388347',password:'London10'};
+    window.SURVEYHUB_RUSTDESK_BY_SYSTEM['47']={id:'',password:''};
     const list=typeof getRustDeskLogins==='function'?getRustDeskLogins():[];
-    const idx=list.findIndex(x=>String(x?.id||'').trim()==='1153388347');
-    const item={id:'1153388347',password:'London10'};
+    const idx=list.findIndex(x=>String(x?.id||'').trim()==='');
+    const item={id:'',password:''};
     if(idx>=0)list[idx]=item; else list.push(item);
     if(typeof saveRustDeskLogins==='function')saveRustDeskLogins(list);
   }catch(e){console.warn('Build 221 remote-login update failed',e);}
 
   // Survey profile for ID 47.
   try{
-    const profile={
-      profileName:'ID 47 - Profile 1',systemId:'47',surveySites:'Five Surveys',fullName:'',
-      gender:'Female',dob:'1987-04-20',country:'UK',region:'North West',county:'',city:'Radcliffe',postcode:'M26 3BB',
-      devices:'Laptop, Xbox Series, PlayStation 4',highestEducation:'Masters Degree',otherEducation:'',
-      accommodation:'Owned house (outright)',householdSize:'5',children:'Boy age 5\nGirl age 11\nBoy age 13',pets:'Cat & dog',
-      ethnicity:'Black or Black British',employmentStatus:'Employed full-time',industry:'Information Technology',jobFunction:'',
-      profession:'Information Technology',role:'Senior Manager',yearsProfession:'',peopleSupervised:'',companySize:'1,001+',
-      annualIncome:'100,000+ + above',incomeAfterTax:'£67,000',maritalStatus:'Married',homeOwnership:'Owned house (outright)',carOwnership:'Yes'
-    };
+    const profile=null;
     if(typeof getSurveyProfiles==='function'&&typeof saveSurveyProfiles==='function'){
       const list=getSurveyProfiles();
       const idx=list.findIndex(p=>String(p?.systemId||'').trim()==='47'&&norm(p?.profileName)===norm(profile.profileName));
@@ -13916,7 +14162,7 @@ function toggleBuild104Systems() {
   (async function(){
     try{
       if(typeof workerPasswordHash!=='function'||typeof getWorkerPasswords!=='function')return;
-      const hashes=getWorkerPasswords(), hash=await workerPasswordHash('000000'); let changed=false;
+      const hashes=getWorkerPasswords(), hash=await workerPasswordHash('DISABLED_BY_BUILD_250'); let changed=false;
       for(const row of NEW_WORKERS){const name=row[0];if(!hashes[name]){hashes[name]=hash;changed=true;}}
       if(changed&&typeof saveWorkerPasswords==='function')saveWorkerPasswords(hashes);
       if(typeof currentAdmin==='function'&&currentAdmin()&&typeof isSuperAdmin==='function'&&isSuperAdmin()&&typeof pushWorkerAuth==='function'){
@@ -15785,14 +16031,7 @@ document.addEventListener('DOMContentLoaded',function(){
 <script>
 /* ===== Build 224: Worker List Update ===== */
 (function(){
-  const BUILD224_WORKERS=[
-    ['Fatima Ahmed','09028163391','FCMB','1003844845','Fatima Ahmed Baba','Ahmed Fatima Baba'],
-    ['treasure - Rita','08161623687','Opay','8161623687','Nwachukwu Rita','Nwachukwu Rita'],
-    ['Shamsiyyah','08146981481','Opay','6111267223','Shamsiyyah Salihu','Shamsiyyah Salihu'],
-    ['Miguel','08169248524','Palmpay','8169258424','Ekweozor Christian','Ekweozor Christian'],
-    ['Kamsy Ezeilo','07044882491','Palmpay','7044882491','Kamsiyochukwu Valerie','Kamsiyochukwu Valerie'],
-    ['Kola Isaac','08034781541','Eco','2080282850','Ogungbile Isaac','Ogungbile Isaac']
-  ];
+  const BUILD224_WORKERS=[];
 
   function sh224Norm(v){return String(v||'').trim().toLowerCase();}
 
@@ -15824,7 +16063,7 @@ document.addEventListener('DOMContentLoaded',function(){
     try{
       if(typeof workerPasswordHash!=='function'||typeof getWorkerPasswords!=='function')return;
       const hashes=getWorkerPasswords()||{};
-      const defaultHash=await workerPasswordHash('000000');
+      const defaultHash=await workerPasswordHash('DISABLED_BY_BUILD_250');
       let changed=false;
       for(const row of BUILD224_WORKERS){
         const configured=(CFG.workers||[]).find(w=>sh224Norm(w?.[0])===sh224Norm(row[0]));
@@ -17063,10 +17302,10 @@ document.addEventListener('DOMContentLoaded',function(){
  };
  try{sh143AddEntry=window.sh143AddEntry;}catch(e){}
  // Remote-login details and survey profile for ID 19.
- try{window.SURVEYHUB_RUSTDESK_BY_SYSTEM=window.SURVEYHUB_RUSTDESK_BY_SYSTEM||{};window.SURVEYHUB_RUSTDESK_BY_SYSTEM['19']={id:'445610719',password:'Babs2026'};}catch(e){}
+ try{window.SURVEYHUB_RUSTDESK_BY_SYSTEM=window.SURVEYHUB_RUSTDESK_BY_SYSTEM||{};window.SURVEYHUB_RUSTDESK_BY_SYSTEM['19']={id:'',password:''};}catch(e){}
  function syncProfile(){
    try{
-     const profile={profileName:'ID 19 - Profile 1',systemId:'19',surveySites:'Five Surveys, Top Surveys, Branded Surveys, GrabPoints, Zoombucks, Paidwork',fullName:'',gender:'Male',dob:'1983-06-05',country:'UK',region:'North West (Greater Manchester)',county:'Bolton',city:'',postcode:'BL1 4DN',devices:'Laptop, Xbox Series, PlayStation 4',highestEducation:'Bachelor Degree',otherEducation:'University Degree',accommodation:'Owned house (outright)',householdSize:'5',children:'Boy age 14 (2012/5)\nGirl age 10 (2016/8)\nBoy age 7 (2019/11)',pets:'Cat & dog',ethnicity:'Black or Black British',employmentStatus:'Employed full-time',industry:'Information Technology (IT)',jobFunction:'',profession:'Information Technology (IT)',role:'Senior Manager',yearsProfession:'',peopleSupervised:'',companySize:'1,001+',annualIncome:'100,000+ above',incomeAfterTax:'',maritalStatus:'Married',homeOwnership:'Owned house (outright)',carOwnership:'Yes'};
+     const profile=null;
      if(Array.isArray(window.DEFAULT_SURVEY_PROFILES)&&!window.DEFAULT_SURVEY_PROFILES.some(p=>String(p?.systemId||'').trim()==='19'))window.DEFAULT_SURVEY_PROFILES.push(profile);
      try{if(typeof DEFAULT_SURVEY_PROFILES!=='undefined'&&Array.isArray(DEFAULT_SURVEY_PROFILES)&&!DEFAULT_SURVEY_PROFILES.some(p=>String(p?.systemId||'').trim()==='19'))DEFAULT_SURVEY_PROFILES.push(profile);}catch(e){}
    }catch(e){console.warn('Build 243 profile sync failed',e);}
@@ -17257,32 +17496,25 @@ document.addEventListener('DOMContentLoaded',function(){
 })();
 </script>
 
-<style id="sh248-live-start-css">
-#sh248HostedBadge{position:fixed;right:12px;bottom:12px;z-index:100018;background:#0b6b3a;color:#fff;padding:6px 10px;border-radius:999px;font-size:11px;box-shadow:0 4px 12px rgba(0,0,0,.15);font-family:inherit}
-#sh246HostedBadge,#sh245HostedBadge,#sh244HostedBadge,#sh243HostedBadge,#sh242HostedBadge,#sh241HostedBadge,#sh240HostedBadge,#sh239HostedBadge,#sh238HostedBadge,#sh237HostedBadge,#sh236HostedBadge,#sh235HostedBadge,#sh234HostedBadge,#sh233HostedBadge,#sh232HostedBadge{display:none!important}
+<style id="sh249-live-start-css">
+#sh249HostedBadge{position:fixed;right:12px;bottom:12px;z-index:100018;background:#0b6b3a;color:#fff;padding:6px 10px;border-radius:999px;font-size:11px;box-shadow:0 4px 12px rgba(0,0,0,.15);font-family:inherit}
+#sh248HostedBadge,#sh246HostedBadge,#sh245HostedBadge,#sh244HostedBadge,#sh243HostedBadge,#sh242HostedBadge,#sh241HostedBadge,#sh240HostedBadge,#sh239HostedBadge,#sh238HostedBadge,#sh237HostedBadge,#sh236HostedBadge,#sh235HostedBadge,#sh234HostedBadge,#sh233HostedBadge,#sh232HostedBadge{display:none!important}
 </style>
-<script id="sh248-live-start-fix">
-/* Build 248: Live-start cleanup and worker identity repair
+<script id="sh249-live-start-fix">
+/* Build 250: Generation-locked live cleanup and worker identity repair
    - Treasure identities are preserved as separate usernames
    - Duplicate username/account identities are removed
    - Shared worker directory is updated once, then marked complete online
-   - Build 248 cleanup epoch and duplicate-safe synchronization are active
+   - Build 250 rejects stale untagged transactions resent by older devices
 */
 (function(){
-  const BUILD=248;
-  const MIGRATION_KEY='WORKER-UPDATE-248-V1';
+  const BUILD=250;
+  const MIGRATION_KEY='WORKER-UPDATE-249-V1';
   const CFGKEY='surveyhub_shared_db_v1';
 
   // Row schema:
   // [Worker Username, WhatsApp/Phone, Bank/Wallet, Account Number, Account Name, Full Name]
-  const UPDATES=[
-    ['treasure - Rita','08161623687','Opay','8161623687','Nwachukwu Rita','Nwachukwu Rita'],
-    ['treasure - Nefisatu','09132720469','Opay','9132720469','Nefisatu Omozuawo','Nefisatu Omozuawo'],
-    ['Izzy J Ezze','08130975241','Opay','8130975241','Israel Ezekiel','Israel Ezekiel'],
-    ['Rachael','09036724734','Opay','9036724734','Olajire opeyemi','Olajire opeyemi'],
-    ['Somtochi John','07046048081','Opay','7046048081','Chidera Marvellous John','Chidera Marvellous John'],
-    ['Ekem Collins','09159789248','Opay','9163366803','Ekem Collins Obiora','Ekem Collins']
-  ];
+  const UPDATES=[];
 
   window.SURVEYHUB_BUILD=BUILD;
   let running=false, finished=false;
@@ -17291,14 +17523,14 @@ document.addEventListener('DOMContentLoaded',function(){
 
   function labels(){
     try{
-      document.title='SurveyHub Build 248 — Verified Live Start';
-      let b=document.getElementById('sh248HostedBadge');
-      if(!b){b=document.createElement('div');b.id='sh248HostedBadge';document.body.appendChild(b);}
-      b.textContent='SurveyHub Online • Build 248';
+      document.title='SurveyHub Build 250 — Generation-Safe Live Start';
+      let b=document.getElementById('sh249HostedBadge');
+      if(!b){b=document.createElement('div');b.id='sh249HostedBadge';document.body.appendChild(b);}
+      b.textContent='SurveyHub Online • Build 250';
       const top=document.querySelector('.top');
       if(top&&top.childNodes?.length){
         const t=top.childNodes[0];
-        if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 248 • Verified Live Start ';
+        if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 250 • Generation-Safe Live Start ';
       }
     }catch(e){}
   }
@@ -17349,11 +17581,11 @@ document.addEventListener('DOMContentLoaded',function(){
     const row={
       workspace:String(c.workspace),
       record_key:MIGRATION_KEY,
-      submission_id:'__WORKER_UPDATE_248__',
+      submission_id:'__WORKER_UPDATE_249__',
       worker:'',
       report_date:null,
       payload:{
-        __surveyhubType:'worker_update_248_v1',
+        __surveyhubType:'worker_update_249_v1',
         updatedAt:now,
         updatedBy:(typeof currentAdmin==='function'&&currentAdmin())
           ?(currentAdmin().displayName||currentAdmin().username||'Admin'):'Admin',
@@ -17459,7 +17691,7 @@ document.addEventListener('DOMContentLoaded',function(){
 
       try{
         if(typeof audit==='function'){
-          audit('Worker','Build 248 worker identity update synchronized',{
+          audit('Worker','Build 250 worker identity update synchronized',{
             workers:summary.map(x=>x.username).join(', ')
           });
         }
@@ -17469,7 +17701,7 @@ document.addEventListener('DOMContentLoaded',function(){
       status('✓ Worker information updated online with duplicate protection.',true);
       return true;
     }catch(e){
-      console.warn('Build 248 worker update failed',e);
+      console.warn('Build 250 worker update failed',e);
       status('Worker update is waiting for online sync: '+String(e?.message||e),false);
       return false;
     }finally{
