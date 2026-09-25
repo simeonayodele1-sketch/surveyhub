@@ -114,10 +114,15 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
 
   function applyWorkerLedgerReset252(profile){
     if(String(profile?.role||'')!=='worker')return false;
-    const marker='surveyhub_worker_ledger_reset_252_v2';
+    const marker='surveyhub_worker_data_reset_252_v3';
     if(localStorage.getItem(marker)==='done')return false;
     localStorage.removeItem('surveyhub_worker_payroll_ledger_v1');
+    localStorage.setItem('surveyhub_worker_submissions_v1','[]');
     Object.keys(localStorage).filter(k=>k.startsWith('surveyhub_worker_payroll_snapshots_v211|')).forEach(k=>localStorage.removeItem(k));
+    if(typeof state!=='undefined'){
+      state.records=[];state.workerSubmissions=[];state.reversals=[];state.withdrawals={};state.withdrawalMeta={};state.payrollPayments={};
+      localStorage.setItem('surveyhub29',JSON.stringify(state));
+    }
     localStorage.setItem(marker,'done');
     return true;
   }
