@@ -5614,7 +5614,17 @@ function removeWorker(index){
 
 /* ===== Build 77: Worker Portal Login & Personal Dashboard ===== */
 const WORKER_PORTAL_SESSION_KEY='surveyhub_worker_portal_session_v1';
-function getWorkerPortalSession(){try{return JSON.parse(localStorage.getItem(WORKER_PORTAL_SESSION_KEY)||'null')}catch(e){return null}}
+function getWorkerPortalSession(){
+  let session=null;
+  try{session=JSON.parse(localStorage.getItem(WORKER_PORTAL_SESSION_KEY)||'null')}catch(e){}
+  if(String(session?.worker||'').trim())return session;
+  const profile=window.SURVEYHUB_SECURE_PROFILE;
+  const worker=String(profile?.role||'').toLowerCase()==='worker'?String(profile?.username||'').trim():'';
+  if(!worker)return null;
+  session={worker,loggedAt:new Date().toISOString(),source:'secure-profile'};
+  try{localStorage.setItem(WORKER_PORTAL_SESSION_KEY,JSON.stringify(session))}catch(e){}
+  return session;
+}
 function setWorkerPortalSession(name){if(name)localStorage.setItem(WORKER_PORTAL_SESSION_KEY,JSON.stringify({worker:name,loggedAt:new Date().toISOString()}));else localStorage.removeItem(WORKER_PORTAL_SESSION_KEY)}
 function openWorkerPortal(){
   const overlay=document.getElementById('workerPortalOverlay'); if(!overlay)return;
