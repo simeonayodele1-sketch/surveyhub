@@ -87,6 +87,7 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
   function permissions(){return {dashboard:true,reports:true,workerSubmissions:true,history:true,audit:true,daily:true,payroll:true,payrollGenerate:true,payrollPaid:true,withdrawals:true,reversals:true,workers:true,systems:true,backup:true}}
 
   async function hydrate(profile){
+    window.SURVEYHUB_SECURE_PROFILE=profile;
     const role=String(profile.role||'');
     const workers=await rest('surveyhub_private_workers',role==='worker'?('?username=eq.'+encodeURIComponent(profile.username)):'?select=*',{method:'GET'});
     if(window.CFG)CFG.workers=(workers||[]).map(w=>[w.username,w.phone,w.bank_wallet,w.account_number,w.account_name,w.full_name]);
@@ -218,7 +219,7 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
 
   function shell(inner){
     let el=document.getElementById('sh250Auth');if(!el){el=document.createElement('div');el.id='sh250Auth';document.body.appendChild(el)}
-    el.innerHTML='<div class="sh250-card"><div class="sh250-badge">SURVEYHUB SECURE • BUILD 253</div>'+inner+'</div>';
+    el.innerHTML='<div class="sh250-card"><div class="sh250-badge">SURVEYHUB SECURE • BUILD 254</div>'+inner+'</div>';
     return el;
   }
   function showLogin(error){
@@ -17832,13 +17833,16 @@ document.addEventListener('DOMContentLoaded',function(){
   })();
 </script>
 
-<script id="sh253-result-entry-fix-final">
-/* Build 253 final load-order fix: retain and display worker draft entries. */
+<script id="sh254-result-entry-fix-final">
+/* Build 254: retain worker draft entries even when browser storage is unavailable. */
 (function(){
-  const BASE='surveyhub_worker_submission_draft_v1',BACKUP='surveyhub_worker_submission_draft_backup_v253',cache={};
+  const BASE='surveyhub_worker_submission_draft_v1',BACKUP='surveyhub_worker_submission_draft_backup_v254',cache={};
   const clean=v=>String(v||'').trim(), valid=d=>d&&typeof d==='object'&&Array.isArray(d.entries);
   const empty=()=>({date:typeof sh143Today==='function'?sh143Today():new Date().toISOString().slice(0,10),entries:[]});
-  const worker=()=>{const s=typeof getWorkerPortalSession==='function'?getWorkerPortalSession():null;return clean(s?.worker);};
+  const worker=()=>{
+    const s=typeof getWorkerPortalSession==='function'?getWorkerPortalSession():null;
+    return clean(s?.worker||window.SURVEYHUB_SECURE_PROFILE?.username);
+  };
   function load(name){
     name=clean(name);if(!name)return empty();if(valid(cache[name]))return cache[name];let d=null;
     try{d=JSON.parse(sessionStorage.getItem(BASE+'|'+name)||'null');}catch(e){}
@@ -17846,7 +17850,7 @@ document.addEventListener('DOMContentLoaded',function(){
     return cache[name]=valid(d)?d:empty();
   }
   function saveDraft(name,d){
-    name=clean(name);if(!name||!valid(d))return false;cache[name]=d;const raw=JSON.stringify(d);let ok=false;
+    name=clean(name);if(!name||!valid(d))return false;cache[name]=d;const raw=JSON.stringify(d);let ok=true;
     try{sessionStorage.setItem(BASE+'|'+name,raw);ok=true;}catch(e){}
     try{localStorage.setItem(BACKUP+'|'+name,raw);ok=true;}catch(e){}
     return ok;
@@ -17880,10 +17884,10 @@ document.addEventListener('DOMContentLoaded',function(){
     sh143RenderDraft();
   };
   try{sh143AddEntry=window.sh143AddEntry;}catch(e){}
-  window.SURVEYHUB_BUILD=253;document.title='SurveyHub Build 253 — Worker Result Entry Fix';
+  window.SURVEYHUB_BUILD=254;document.title='SurveyHub Build 254 — Worker Result Storage Fix';
   function label(){
-    let b=document.getElementById('sh253HostedBadge');if(!b){b=document.createElement('div');b.id='sh253HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 253';
-    const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 253 • Worker Result Entry Fix ';}
+    let b=document.getElementById('sh254HostedBadge');if(!b){b=document.createElement('div');b.id='sh254HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 254';
+    const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 254 • Worker Result Storage Fix ';}
   }
   document.addEventListener('DOMContentLoaded',label);if(document.readyState!=='loading')label();
 })();
