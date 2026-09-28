@@ -112,54 +112,6 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
     }
   }
 
-  function applyWorkerLedgerReset252(profile){
-    if(String(profile?.role||'')!=='worker')return false;
-    const marker='surveyhub_worker_data_reset_252_v3';
-    if(localStorage.getItem(marker)==='done')return false;
-    localStorage.removeItem('surveyhub_worker_payroll_ledger_v1');
-    localStorage.setItem('surveyhub_worker_submissions_v1','[]');
-    Object.keys(localStorage).filter(k=>k.startsWith('surveyhub_worker_payroll_snapshots_v211|')).forEach(k=>localStorage.removeItem(k));
-    if(typeof state!=='undefined'){
-      state.records=[];state.workerSubmissions=[];state.reversals=[];state.withdrawals={};state.withdrawalMeta={};state.payrollPayments={};
-      localStorage.setItem('surveyhub29',JSON.stringify(state));
-    }
-    localStorage.setItem(marker,'done');
-    return true;
-  }
-
-  async function applyCurrentLiveEpoch(){
-    try{
-      const rows=await rest('surveyhub_records','?record_key=eq.LIVE-EPOCH&select=payload,updated_at&order=updated_at.desc&limit=1',{method:'GET'});
-      const raw=String(rows?.[0]?.payload?.startedAt||rows?.[0]?.updated_at||'').trim();
-      const epoch=raw&&!Number.isNaN(Date.parse(raw))?new Date(raw).toISOString():'';
-      if(!epoch||localStorage.getItem('surveyhub_live_epoch_applied_v1')===epoch)return false;
-      if(typeof state!=='undefined'){
-        state.records=[];state.reversals=[];state.withdrawals={};state.withdrawalMeta={};
-        state.workerSubmissions=[];state.payrollPayments={};
-      }
-      [
-        'surveyhub_worker_submissions_v1','surveyhub_worker_submission_draft_v1',
-        'surveyhub_selected_pending_submission_v158','surveyhub_payroll_history_v1',
-        'surveyhub_payroll_payment_status_v2','surveyhub_payroll_payments_v1',
-        'surveyhub_worker_payroll_ledger_v1',
-        'surveyhub_activity_log_v1','surveyhub_build48_history_seeded',
-        'surveyhub_worker_systems_today_v1'
-      ].forEach(k=>localStorage.removeItem(k));
-      localStorage.setItem('surveyhub_worker_submissions_v1','[]');
-      localStorage.setItem('surveyhub_payroll_history_v1','[]');
-      localStorage.setItem('surveyhub_payroll_payment_status_v2','{}');
-      localStorage.setItem('surveyhub_payroll_payments_v1','{}');
-      localStorage.setItem('surveyhub_activity_log_v1','[]');
-      localStorage.setItem('surveyhub_live_epoch_applied_v1',epoch);
-      localStorage.setItem('surveyhub_live_generation_repair_v249',epoch);
-      if(typeof state!=='undefined')localStorage.setItem('surveyhub29',JSON.stringify(state));
-      return true;
-    }catch(error){
-      console.warn('Live-start cleanup could not be checked',error);
-      return false;
-    }
-  }
-
   function addWorkerBankCard(profile){
     if(profile.role!=='worker')return;
     const row=(window.CFG?.workers||[])[0];if(!row)return;
@@ -254,7 +206,7 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
     try{
       const current=await refreshSession();
       if(!current){showLogin();return}
-      const profile=await profileForSession();await hydrate(profile);applyWorkerLedgerReset252(profile);await applyCurrentLiveEpoch();
+      const profile=await profileForSession();await hydrate(profile);
       if(profile.must_change_password){showPasswordChange(profile);return}
       installAdminTools(profile);
       unlock(profile);
@@ -318,55 +270,107 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
   document.addEventListener('DOMContentLoaded',start);
 })();
 </script>
-<style id="sh252-label-fix">
-  [id^="sh"][id$="HostedBadge"]{display:none!important}
-  #sh249HostedBadge{display:block!important}
+
+<style id="sh253-result-entry-fix-css">
+#sh253HostedBadge{position:fixed;right:12px;bottom:12px;z-index:100019;background:#0b6b3a;color:#fff;padding:6px 10px;border-radius:999px;font-size:11px;box-shadow:0 4px 12px rgba(0,0,0,.15);font-family:inherit}
+#sh249HostedBadge{display:none!important}
 </style>
-<script id="sh252-label-fix-script">
-/* Build 252 hotfix: keep the current label authoritative without a refresh timer. */
+<script id="sh253-result-entry-fix">
+/* Build 253: keep worker result drafts after Add Result on mobile browsers. */
 (function(){
-  function applyBuild252Label(){
+  const BUILD=253;
+  const BASE='surveyhub_worker_submission_draft_v1';
+  const BACKUP='surveyhub_worker_submission_draft_backup_v253';
+  const cache={};
+  const cleanName=v=>String(v||'').trim();
+  const key=name=>BASE+'|'+cleanName(name);
+  const backupKey=name=>BACKUP+'|'+cleanName(name);
+  const empty=()=>({date:typeof sh143Today==='function'?sh143Today():new Date().toISOString().slice(0,10),entries:[]});
+  const valid=d=>d&&typeof d==='object'&&Array.isArray(d.entries);
+
+  function load(name){
+    name=cleanName(name);if(!name)return empty();
+    if(valid(cache[name]))return cache[name];
+    let d=null;
+    try{d=JSON.parse(sessionStorage.getItem(key(name))||'null');}catch(e){}
+    if(!valid(d)){try{d=JSON.parse(localStorage.getItem(backupKey(name))||'null');}catch(e){}}
+    cache[name]=valid(d)?d:empty();
+    return cache[name];
+  }
+  function saveDraft(name,draft){
+    name=cleanName(name);if(!name||!valid(draft))return false;
+    cache[name]=draft;
+    const raw=JSON.stringify(draft);
+    let saved=false;
+    try{sessionStorage.setItem(key(name),raw);saved=true;}catch(e){}
+    try{localStorage.setItem(backupKey(name),raw);saved=true;}catch(e){}
+    return saved;
+  }
+  window.sh143LoadDraft=load;
+  window.sh143SaveDraft=saveDraft;
+  window.sh143GetDraft=function(){
+    const s=typeof getWorkerPortalSession==='function'?getWorkerPortalSession():null;
+    return s?.worker?load(s.worker):empty();
+  };
+  window.sh143SetDraft=function(draft){
+    const s=typeof getWorkerPortalSession==='function'?getWorkerPortalSession():null;
+    return s?.worker?saveDraft(s.worker,draft):false;
+  };
+  try{sh143LoadDraft=window.sh143LoadDraft;sh143SaveDraft=window.sh143SaveDraft;sh143GetDraft=window.sh143GetDraft;sh143SetDraft=window.sh143SetDraft;}catch(e){}
+
+  // Preserve the selected site when the draft summary is redrawn.
+  const oldSiteRender=window.sh143RenderSiteOptions;
+  window.sh143RenderSiteOptions=function(){
+    const el=document.getElementById('sh143Site');
+    const selected=String(el?.value||'');
+    const r=typeof oldSiteRender==='function'?oldSiteRender.apply(this,arguments):undefined;
+    const next=document.getElementById('sh143Site');
+    if(next&&selected&&[...next.options].some(o=>o.value===selected)){
+      next.value=selected;
+      try{if(typeof sh143RenderUnitOptions==='function')sh143RenderUnitOptions();}catch(e){}
+    }
+    return r;
+  };
+  try{sh143RenderSiteOptions=window.sh143RenderSiteOptions;}catch(e){}
+
+  // Use one final, non-wrapped Add Result path and verify persistence before clearing the field.
+  window.sh143AddEntry=function(){
+    const id=cleanName(document.getElementById('sh143System')?.value);
+    const site=cleanName(document.getElementById('sh143Site')?.value);
+    const unit=cleanName(document.getElementById('sh143Unit')?.value);
+    const amount=document.getElementById('sh143Amount');
+    const raw=cleanName(amount?.value);
+    const msg=document.getElementById('workerPortalSubmitMsg');
+    const allowed=typeof sh143SiteOptions==='function'?sh143SiteOptions(id):[];
+    const norm=v=>cleanName(v).toLowerCase().replace(/\s+/g,' ');
+    if(!id){if(msg)msg.innerHTML='<p class="bad">Select the ID/system you worked on.</p>';return;}
+    if(!site){if(msg)msg.innerHTML='<p class="bad">Select the survey site.</p>';return;}
+    if(Array.isArray(allowed)&&allowed.length&&!allowed.some(s=>norm(s)===norm(site))){if(msg)msg.innerHTML='<p class="bad">'+esc(site)+' is not configured for ID '+esc(id)+'.</p>';return;}
+    if(!unit){if(msg)msg.innerHTML='<p class="bad">Select the unit used by the survey site.</p>';return;}
+    const parsed=sh144ParseAmountExpression(raw);
+    if(!parsed.ok){if(msg)msg.innerHTML='<p class="bad">'+esc(parsed.error)+'</p>';return;}
+    const d=window.sh143GetDraft();if(!d.date)d.date=sh143Today();
+    parsed.parts.forEach((part,i)=>d.entries.push(sh143ConvertEntry({id,site,unit,value:part,expression:String(part),expressionGroup:parsed.expression,expressionIndex:i})));
+    if(!window.sh143SetDraft(d)){if(msg)msg.innerHTML='<p class="bad">This browser could not save the result. Please free some browser storage and try again.</p>';return;}
+    if(amount)amount.value='';
+    if(msg)msg.innerHTML='<p class="good">✓ '+parsed.parts.length+' result'+(parsed.parts.length===1?'':'s')+' added.</p>';
+    sh143RenderDraft();
+  };
+  try{sh143AddEntry=window.sh143AddEntry;}catch(e){}
+
+  function labels(){
     try{
-      window.SURVEYHUB_BUILD=252;
-      document.title='SurveyHub Build 252 — Stable Mobile Display';
-      let badge=document.getElementById('sh249HostedBadge');
-      if(!badge){
-        badge=document.createElement('div');
-        badge.id='sh249HostedBadge';
-        document.body.appendChild(badge);
-      }
-      badge.textContent='SurveyHub Online • Build 252';
+      window.SURVEYHUB_BUILD=BUILD;
+      document.title='SurveyHub Build 253 — Worker Result Entry Fix';
+      let b=document.getElementById('sh253HostedBadge');
+      if(!b){b=document.createElement('div');b.id='sh253HostedBadge';document.body.appendChild(b);}
+      b.textContent='SurveyHub Online • Build 253';
       const top=document.querySelector('.top');
-      const textNode=top&&top.childNodes&&top.childNodes[0];
-      if(textNode&&textNode.nodeType===3){
-        textNode.nodeValue='📊 SurveyHub — Build 252 • Stable Mobile Display ';
-      }
+      if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 253 • Worker Result Entry Fix ';}
     }catch(e){}
   }
-  function guardBuild252Label(){
-    const repair=()=>{
-      const top=document.querySelector('.top');
-      const textNode=top&&top.childNodes&&top.childNodes[0];
-      if(document.title!=='SurveyHub Build 252 — Stable Mobile Display' ||
-         (textNode&&textNode.nodeType===3&&!String(textNode.nodeValue||'').includes('Build 252'))){
-        applyBuild252Label();
-      }
-    };
-    const top=document.querySelector('.top');
-    const title=document.querySelector('title');
-    if(top)new MutationObserver(repair).observe(top,{subtree:true,childList:true,characterData:true});
-    if(title)new MutationObserver(repair).observe(title,{subtree:true,childList:true,characterData:true});
-    repair();
-  }
-  const lockObserver=new MutationObserver(()=>{
-    if(!document.documentElement.classList.contains('sh250-secure-lock')){
-      lockObserver.disconnect();
-      applyBuild252Label();
-    }
-  });
-  lockObserver.observe(document.documentElement,{attributes:true,attributeFilter:['class']});
-  document.addEventListener('DOMContentLoaded',()=>setTimeout(guardBuild252Label,1200),{once:true});
-  if(document.readyState!=='loading')setTimeout(guardBuild252Label,1200);
+  document.addEventListener('DOMContentLoaded',labels);
+  if(document.readyState!=='loading')labels();
 })();
 </script>
 <style>
@@ -3070,7 +3074,6 @@ async function sh176StartLiveCleanup(){
       'surveyhub_payroll_history_v1',
       'surveyhub_payroll_payment_status_v2',
       'surveyhub_payroll_payments_v1',
-      'surveyhub_worker_payroll_ledger_v1',
       'surveyhub_activity_log_v1',
       'surveyhub_build48_history_seeded',
       'surveyhub_worker_systems_today_v1'
@@ -8597,7 +8600,6 @@ function toggleBuild104Systems() {
       'surveyhub_payroll_history_v1',
       'surveyhub_payroll_payment_status_v2',
       'surveyhub_payroll_payments_v1',
-      'surveyhub_worker_payroll_ledger_v1',
       'surveyhub_activity_log_v1',
       'surveyhub_build48_history_seeded',
       'surveyhub_worker_systems_today_v1'
@@ -17828,4 +17830,61 @@ document.addEventListener('DOMContentLoaded',function(){
   document.addEventListener('DOMContentLoaded',init);
   if(document.readyState!=='loading')init();
   })();
+</script>
+
+<script id="sh253-result-entry-fix-final">
+/* Build 253 final load-order fix: retain and display worker draft entries. */
+(function(){
+  const BASE='surveyhub_worker_submission_draft_v1',BACKUP='surveyhub_worker_submission_draft_backup_v253',cache={};
+  const clean=v=>String(v||'').trim(), valid=d=>d&&typeof d==='object'&&Array.isArray(d.entries);
+  const empty=()=>({date:typeof sh143Today==='function'?sh143Today():new Date().toISOString().slice(0,10),entries:[]});
+  const worker=()=>{const s=typeof getWorkerPortalSession==='function'?getWorkerPortalSession():null;return clean(s?.worker);};
+  function load(name){
+    name=clean(name);if(!name)return empty();if(valid(cache[name]))return cache[name];let d=null;
+    try{d=JSON.parse(sessionStorage.getItem(BASE+'|'+name)||'null');}catch(e){}
+    if(!valid(d)){try{d=JSON.parse(localStorage.getItem(BACKUP+'|'+name)||'null');}catch(e){}}
+    return cache[name]=valid(d)?d:empty();
+  }
+  function saveDraft(name,d){
+    name=clean(name);if(!name||!valid(d))return false;cache[name]=d;const raw=JSON.stringify(d);let ok=false;
+    try{sessionStorage.setItem(BASE+'|'+name,raw);ok=true;}catch(e){}
+    try{localStorage.setItem(BACKUP+'|'+name,raw);ok=true;}catch(e){}
+    return ok;
+  }
+  window.sh143LoadDraft=load;window.sh143SaveDraft=saveDraft;
+  window.sh143GetDraft=()=>worker()?load(worker()):empty();
+  window.sh143SetDraft=d=>worker()?saveDraft(worker(),d):false;
+  try{sh143LoadDraft=window.sh143LoadDraft;sh143SaveDraft=window.sh143SaveDraft;sh143GetDraft=window.sh143GetDraft;sh143SetDraft=window.sh143SetDraft;}catch(e){}
+
+  const renderSites=window.sh143RenderSiteOptions;
+  window.sh143RenderSiteOptions=function(){
+    const old=clean(document.getElementById('sh143Site')?.value),r=typeof renderSites==='function'?renderSites.apply(this,arguments):undefined;
+    const el=document.getElementById('sh143Site');if(el&&old&&[...el.options].some(o=>o.value===old)){el.value=old;try{sh143RenderUnitOptions();}catch(e){}}
+    return r;
+  };
+  try{sh143RenderSiteOptions=window.sh143RenderSiteOptions;}catch(e){}
+
+  window.sh143AddEntry=function(){
+    const id=clean(document.getElementById('sh143System')?.value),site=clean(document.getElementById('sh143Site')?.value),unit=clean(document.getElementById('sh143Unit')?.value);
+    const input=document.getElementById('sh143Amount'),raw=clean(input?.value),msg=document.getElementById('workerPortalSubmitMsg'),norm=v=>clean(v).toLowerCase().replace(/\s+/g,' ');
+    const allowed=typeof sh143SiteOptions==='function'?sh143SiteOptions(id):[];
+    if(!id){if(msg)msg.innerHTML='<p class="bad">Select the ID/system you worked on.</p>';return;}
+    if(!site){if(msg)msg.innerHTML='<p class="bad">Select the survey site.</p>';return;}
+    if(Array.isArray(allowed)&&allowed.length&&!allowed.some(s=>norm(s)===norm(site))){if(msg)msg.innerHTML='<p class="bad">'+esc(site)+' is not configured for ID '+esc(id)+'.</p>';return;}
+    if(!unit){if(msg)msg.innerHTML='<p class="bad">Select the unit used by the survey site.</p>';return;}
+    const parsed=sh144ParseAmountExpression(raw);if(!parsed.ok){if(msg)msg.innerHTML='<p class="bad">'+esc(parsed.error)+'</p>';return;}
+    const d=window.sh143GetDraft();if(!d.date)d.date=sh143Today();
+    parsed.parts.forEach((part,i)=>d.entries.push(sh143ConvertEntry({id,site,unit,value:part,expression:String(part),expressionGroup:parsed.expression,expressionIndex:i})));
+    if(!window.sh143SetDraft(d)){if(msg)msg.innerHTML='<p class="bad">The result could not be saved on this browser. Please try again.</p>';return;}
+    if(input)input.value='';if(msg)msg.innerHTML='<p class="good">✓ '+parsed.parts.length+' result'+(parsed.parts.length===1?'':'s')+' added.</p>';
+    sh143RenderDraft();
+  };
+  try{sh143AddEntry=window.sh143AddEntry;}catch(e){}
+  window.SURVEYHUB_BUILD=253;document.title='SurveyHub Build 253 — Worker Result Entry Fix';
+  function label(){
+    let b=document.getElementById('sh253HostedBadge');if(!b){b=document.createElement('div');b.id='sh253HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 253';
+    const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 253 • Worker Result Entry Fix ';}
+  }
+  document.addEventListener('DOMContentLoaded',label);if(document.readyState!=='loading')label();
+})();
 </script>
