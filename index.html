@@ -219,7 +219,7 @@ html.sh250-secure-lock body{overflow:hidden!important;background:#eef4ff}
 
   function shell(inner){
     let el=document.getElementById('sh250Auth');if(!el){el=document.createElement('div');el.id='sh250Auth';document.body.appendChild(el)}
-    el.innerHTML='<div class="sh250-card"><div class="sh250-badge">SURVEYHUB SECURE • BUILD 254</div>'+inner+'</div>';
+    el.innerHTML='<div class="sh250-card"><div class="sh250-badge">SURVEYHUB SECURE • BUILD 255</div>'+inner+'</div>';
     return el;
   }
   function showLogin(error){
@@ -17888,6 +17888,41 @@ document.addEventListener('DOMContentLoaded',function(){
   function label(){
     let b=document.getElementById('sh254HostedBadge');if(!b){b=document.createElement('div');b.id='sh254HostedBadge';document.body.appendChild(b);}b.textContent='SurveyHub Online • Build 254';
     const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 254 • Worker Result Storage Fix ';}
+  }
+  document.addEventListener('DOMContentLoaded',label);if(document.readyState!=='loading')label();
+})();
+</script>
+
+<script id="sh255-secure-worker-submit-session-fix">
+/* Build 255: bridge the verified Supabase worker profile into legacy submit handlers. */
+(function(){
+  const previous=typeof window.getWorkerPortalSession==='function'?window.getWorkerPortalSession:null;
+  function secureWorker(){
+    const profile=window.SURVEYHUB_SECURE_PROFILE;
+    if(String(profile?.role||'').toLowerCase()!=='worker')return '';
+    return String(profile?.username||'').trim();
+  }
+  window.getWorkerPortalSession=function(){
+    let session=null;
+    try{session=previous?previous():null;}catch(e){}
+    if(String(session?.worker||'').trim())return session;
+    const worker=secureWorker();
+    if(!worker)return null;
+    session={worker,loggedAt:new Date().toISOString(),source:'secure-profile'};
+    try{localStorage.setItem('surveyhub_worker_portal_session_v1',JSON.stringify(session));}catch(e){}
+    return session;
+  };
+  try{getWorkerPortalSession=window.getWorkerPortalSession;}catch(e){}
+
+  window.SURVEYHUB_BUILD=255;
+  document.title='SurveyHub Build 255 — Secure Worker Submission Fix';
+  function label(){
+    document.querySelectorAll('[id$="HostedBadge"]').forEach(el=>{if(el.id!=='sh255HostedBadge')el.style.display='none';});
+    let badge=document.getElementById('sh255HostedBadge');
+    if(!badge){badge=document.createElement('div');badge.id='sh255HostedBadge';badge.style.cssText='position:fixed;right:12px;bottom:12px;z-index:100006;background:#0b6b3a;color:#fff;padding:6px 10px;border-radius:999px;font-size:11px;box-shadow:0 4px 12px rgba(0,0,0,.15);font-family:inherit';document.body.appendChild(badge);}
+    badge.textContent='SurveyHub Online • Build 255';
+    const secure=document.querySelector('.sh250-badge');if(secure)secure.textContent='SURVEYHUB SECURE • BUILD 255';
+    const top=document.querySelector('.top');if(top&&top.childNodes?.length){const t=top.childNodes[0];if(t?.nodeType===3)t.nodeValue='📊 SurveyHub — Build 255 • Secure Worker Submission Fix ';}
   }
   document.addEventListener('DOMContentLoaded',label);if(document.readyState!=='loading')label();
 })();
